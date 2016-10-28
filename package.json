@@ -1,0 +1,18 @@
+{
+  "name": "dqn-cross-road",
+  "version": "1.0.0",
+  "description": "DQN crosses the road",
+  "dependencies": {
+    "@types/lodash": "^4.14.37",
+    "lodash": "^4.16.4",
+    "p5": "^0.5.4"
+  },
+  "devDependencies": {
+    "glob": "^7.1.1",
+    "ts-loader": "^0.9.5",
+    "typescript": "^2.0.3",
+    "webpack-livereload-plugin": "^0.9.0"
+  },
+  "author": "ABA",
+  "license": "MIT"
+}
