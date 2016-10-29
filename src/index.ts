@@ -2,6 +2,7 @@ import * as _ from 'lodash';
 import * as pag from 'pag';
 import * as ppe from 'ppe';
 import * as sss from 'sss';
+import * as gcc from 'gcc';
 import * as s1 from './s1/index';
 declare const require: any;
 const RL = require('rl');
@@ -18,6 +19,7 @@ function init() {
   s1.setSeeds(9009582);
   /*s1.enableDebug(() => {
   });*/
+  gcc.setOptions({ scale: 1 });
 }
 
 const laneCount = 8;
@@ -51,6 +53,7 @@ function update() {
 
 function postUpdate() {
   drawDqnRewards();
+  gcc.capture(s1.screen.canvas);
 }
 
 class Dqn extends s1.Actor {
