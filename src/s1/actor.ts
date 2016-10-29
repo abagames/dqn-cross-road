@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import * as pag from 'pag';
+import * as ppe from 'ppe';
 import * as ir from 'ir';
 import * as s1 from './index';
 import * as screen from './screen';
@@ -48,7 +49,17 @@ export default class Actor {
     );
   }
 
-  drawPixels() {
+  emitParticles(patternName: string, ...args) {
+    (<any>ppe.emit)(patternName, this.pos.x, this.pos.y, this.angle, ...args);
+  }
+
+  drawPixels(x: number = null, y: number = null) {
+    if (x == null) {
+      x = this.pos.x;
+    }
+    if (y == null) {
+      y = this.pos.y;
+    }
     let a = this.angle;
     if (a < 0) {
       a = Math.PI * 2 - Math.abs(a % (Math.PI * 2));
@@ -57,8 +68,8 @@ export default class Actor {
       this.pixels[Math.round(a / (Math.PI * 2 / rotationNum)) % rotationNum];
     const pw = pxs.length;
     const ph = pxs[0].length;
-    const sbx = Math.floor(this.pos.x - pw / 2);
-    const sby = Math.floor(this.pos.y - ph / 2);
+    const sbx = Math.floor(x - pw / 2);
+    const sby = Math.floor(y - ph / 2);
     for (let y = 0, sy = sby; y < ph; y++ , sy++) {
       for (let x = 0, sx = sbx; x < pw; x++ , sx++) {
         var px = pxs[x][y];
@@ -112,10 +123,6 @@ export default class Actor {
         i++;
       }
     }
-  }
-
-  static generatePixels(pattern: string[], options = {}): pag.Pixel[][][] {
-    return pag.generate(pattern, options);
   }
 
   static get(type: string) {
