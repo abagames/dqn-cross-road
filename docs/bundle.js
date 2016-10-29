@@ -64,35 +64,197 @@
 	    function __() { this.constructor = d; }
 	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	};
+	var _ = __webpack_require__(8);
+	var pag = __webpack_require__(3);
+	var sss = __webpack_require__(5);
 	var s1 = __webpack_require__(2);
 	var RL = __webpack_require__(16);
-	s1.init(init, initGame, update);
+	s1.init(init, initGame, update, postUpdate);
 	function init() {
 	    s1.screen.init(128, 128);
 	    s1.setTitle('DQN', 'CROSS ROAD');
-	    //s1.setSeeds(7589781);
-	    s1.enableDebug(function () {
+	    s1.setOptions({
+	        isShowingTitle: false,
+	        isShowingScore: false
 	    });
+	    s1.setSeeds(9009582);
+	    /*s1.enableDebug(() => {
+	    });*/
 	}
+	var laneCount = 8;
+	var dqnCount = 8;
 	function initGame() {
-	    new Dqn();
+	    _.times(dqnCount, function () { return new Dqn(); });
+	    sortDqns();
 	}
 	function update() {
+	    if (s1.ticks % (60 * 5) == 60 * 5 - 1) {
+	        var dqns = s1.Actor.get('Dqn');
+	        if (dqns.length > 1) {
+	            sortDqns(true);
+	        }
+	        else {
+	            var aliveDqn = dqns[0];
+	            aliveDqn.totalReward = 0;
+	            var agentJSON_1 = aliveDqn.agent.toJSON();
+	            _.times(dqnCount - 1, function () {
+	                var d = new Dqn();
+	                d.agent.fromJSON(agentJSON_1);
+	            });
+	            sortDqns();
+	        }
+	    }
+	    if (s1.ticks % 20 === 0) {
+	        new Car();
+	    }
+	}
+	function postUpdate() {
+	    drawDqnRewards();
 	}
 	var Dqn = (function (_super) {
 	    __extends(Dqn, _super);
 	    function Dqn() {
 	        _super.call(this);
+	        this.lane = laneCount + 1;
+	        this.totalReward = 0;
+	        this.isHit = false;
+	        this.isFirst = true;
+	        this.index = 0;
 	        var env = {};
 	        env.getNumStates = function () { return 3; };
 	        env.getMaxNumActions = function () { return 3; };
 	        this.agent = new RL.DQNAgent(env, {});
+	        this.pixels = pag.generate([' x', 'xxx', 'x x'], { isMirrorY: false, hue: Dqn.hueIndex });
+	        this.pos.x = s1.screen.size.x / 2;
+	        Dqn.hueIndex += 0.11;
+	        if (Dqn.hueIndex >= 1) {
+	            Dqn.hueIndex--;
+	        }
+	        this.pos.y = this.lane * 12 + 8;
 	    }
 	    Dqn.prototype.update = function () {
-	        this.agent.act([0, 0, 0]);
-	        this.agent.learn(0);
+	        var _this = this;
+	        if (getNearestCarDist(this.lane) < 5) {
+	            this.isHit = true;
+	        }
+	        this.pos.y += (this.lane * 12 + 8 - this.pos.y) * 0.2;
+	        _super.prototype.update.call(this);
+	        if (s1.ticks % 8 > 0) {
+	            return;
+	        }
+	        var reward = 0;
+	        if (this.isHit) {
+	            reward--;
+	            this.emitParticles('e1');
+	            sss.play('e1');
+	            this.lane = laneCount + 1;
+	            this.isHit = false;
+	        }
+	        else if (this.lane < 1) {
+	            reward++;
+	            sss.play('c1');
+	            this.lane = laneCount + 1;
+	        }
+	        if (!this.isFirst) {
+	            this.agent.learn(reward);
+	            this.totalReward += reward;
+	        }
+	        else {
+	            this.isFirst = false;
+	        }
+	        var state = _.times(3, function (i) { return getNearestCarDist(_this.lane + i - 1); });
+	        var action = this.agent.act(state);
+	        var prevLane = this.lane;
+	        this.lane += action - 1;
+	        if (this.lane > laneCount) {
+	            if (prevLane <= laneCount) {
+	                this.lane = laneCount;
+	            }
+	            else {
+	                this.lane = laneCount + 1;
+	            }
+	        }
 	    };
+	    Dqn.hueIndex = 0;
 	    return Dqn;
+	}(s1.Actor));
+	function sortDqns(isElminating) {
+	    if (isElminating === void 0) { isElminating = false; }
+	    var dqns = _.sortBy(s1.Actor.get('Dqn'), 'totalReward');
+	    if (isElminating) {
+	        var ed = dqns[0];
+	        ed.emitParticles('e2', 2);
+	        sss.play('u1');
+	        ed.remove();
+	        dqns.shift();
+	    }
+	    _.forEach(dqns, function (d, i) {
+	        d.index = i;
+	        d.priority = 10 - i;
+	    });
+	}
+	function drawDqnRewards() {
+	    _.forEach(s1.Actor.get('Dqn'), function (d) {
+	        var ry = d.index * 10 + 10;
+	        d.drawPixels(8, ry);
+	        s1.text.draw("" + d.totalReward, 20, ry);
+	    });
+	}
+	var Car = (function (_super) {
+	    __extends(Car, _super);
+	    function Car() {
+	        _super.call(this);
+	        this.ticks = 0;
+	        this.dist = 999;
+	        this.lane = Math.floor(s1.p.random(1, laneCount + 1));
+	        this.pixels = pag.generate(['x x', 'xxx'], { seed: this.lane, hue: 0.2 + this.lane * 11 % 3 * 0.1 });
+	        this.angle = this.lane % 2 * s1.p.PI;
+	        this.pos.y = this.lane * 12 + 8;
+	        sss.play("l" + this.lane);
+	    }
+	    Car.prototype.update = function () {
+	        var x;
+	        var speed = (this.lane * 11) % 3 + 1;
+	        if (this.angle === 0) {
+	            x = this.ticks * speed;
+	            if (x > s1.screen.size.x) {
+	                this.remove();
+	            }
+	        }
+	        else {
+	            x = s1.screen.size.x - this.ticks * speed;
+	            if (x < 0) {
+	                this.remove();
+	            }
+	        }
+	        this.dist = s1.screen.size.x / 2 - x;
+	        if (this.angle > 0) {
+	            this.dist *= -1;
+	        }
+	        if (this.dist < 0) {
+	            this.dist = 999;
+	        }
+	        this.pos.x = x;
+	        _super.prototype.update.call(this);
+	    };
+	    return Car;
+	}(s1.Actor));
+	function getCars(lane) {
+	    return _.filter(s1.Actor.get('Car'), function (c) { return c.lane === lane; });
+	}
+	function getCarsFromNearest(lane) {
+	    return _.sortBy(getCars(lane), 'dist');
+	}
+	function getNearestCarDist(lane) {
+	    var cars = getCarsFromNearest(lane);
+	    return cars.length > 0 ? cars[0].dist : 999;
+	}
+	var Road = (function (_super) {
+	    __extends(Road, _super);
+	    function Road() {
+	        _super.call(this);
+	    }
+	    return Road;
 	}(s1.Actor));
 
 
@@ -122,9 +284,14 @@
 	exports.p5 = __webpack_require__(15);
 	exports.ticks = 0;
 	exports.score = 0;
+	var options = {
+	    isShowingScore: true,
+	    isShowingTitle: true
+	};
 	var initFunc;
 	var initGameFunc;
 	var updateFunc;
+	var postUpdateFunc;
 	var onSeedChangedFunc;
 	var actorGeneratorFunc;
 	var getReplayStatusFunc;
@@ -140,10 +307,12 @@
 	})(exports.Scene || (exports.Scene = {}));
 	var Scene = exports.Scene;
 	;
-	function init(_initFunc, _initGameFunc, _updateFunc) {
+	function init(_initFunc, _initGameFunc, _updateFunc, _postUpdateFunc) {
+	    if (_postUpdateFunc === void 0) { _postUpdateFunc = null; }
 	    initFunc = _initFunc;
 	    initGameFunc = _initGameFunc;
 	    updateFunc = _updateFunc;
+	    postUpdateFunc = _postUpdateFunc;
 	    exports.random = new random_1.default();
 	    sss.init();
 	    new exports.p5(function (_p) {
@@ -176,6 +345,12 @@
 	    isDebugEnabled = true;
 	}
 	exports.enableDebug = enableDebug;
+	function setOptions(_options) {
+	    for (var attr in _options) {
+	        options[attr] = _options[attr];
+	    }
+	}
+	exports.setOptions = setOptions;
 	function setSeeds(seed) {
 	    pag.setSeed(seed);
 	    ppe.setSeed(seed);
@@ -213,7 +388,7 @@
 	    actor_1.default.init();
 	    initFunc();
 	    ui.init(screen.canvas, screen.size);
-	    if (isDebugEnabled) {
+	    if (isDebugEnabled || !options.isShowingTitle) {
 	        beginGame();
 	    }
 	    else {
@@ -254,7 +429,12 @@
 	    updateFunc();
 	    ppe.update();
 	    actor_1.default.update();
-	    text.draw("" + exports.score, 1, 1);
+	    if (postUpdateFunc != null) {
+	        postUpdateFunc();
+	    }
+	    if (options.isShowingScore) {
+	        text.draw("" + exports.score, 1, 1);
+	    }
 	    drawSceneText();
 	    exports.ticks++;
 	}
@@ -3465,6 +3645,7 @@
 	"use strict";
 	var _ = __webpack_require__(8);
 	var pag = __webpack_require__(3);
+	var ppe = __webpack_require__(4);
 	var ir = __webpack_require__(6);
 	var s1 = __webpack_require__(2);
 	var screen = __webpack_require__(10);
@@ -3504,7 +3685,22 @@
 	                p.abs(_this.pos.y - a.pos.y) < (_this.collision.y + a.collision.y) / 2;
 	        });
 	    };
-	    Actor.prototype.drawPixels = function () {
+	    Actor.prototype.emitParticles = function (patternName) {
+	        var args = [];
+	        for (var _i = 1; _i < arguments.length; _i++) {
+	            args[_i - 1] = arguments[_i];
+	        }
+	        ppe.emit.apply(ppe, [patternName, this.pos.x, this.pos.y, this.angle].concat(args));
+	    };
+	    Actor.prototype.drawPixels = function (x, y) {
+	        if (x === void 0) { x = null; }
+	        if (y === void 0) { y = null; }
+	        if (x == null) {
+	            x = this.pos.x;
+	        }
+	        if (y == null) {
+	            y = this.pos.y;
+	        }
 	        var a = this.angle;
 	        if (a < 0) {
 	            a = Math.PI * 2 - Math.abs(a % (Math.PI * 2));
@@ -3512,11 +3708,11 @@
 	        var pxs = this.pixels[Math.round(a / (Math.PI * 2 / rotationNum)) % rotationNum];
 	        var pw = pxs.length;
 	        var ph = pxs[0].length;
-	        var sbx = Math.floor(this.pos.x - pw / 2);
-	        var sby = Math.floor(this.pos.y - ph / 2);
-	        for (var y = 0, sy = sby; y < ph; y++, sy++) {
-	            for (var x = 0, sx = sbx; x < pw; x++, sx++) {
-	                var px = pxs[x][y];
+	        var sbx = Math.floor(x - pw / 2);
+	        var sby = Math.floor(y - ph / 2);
+	        for (var y_1 = 0, sy = sby; y_1 < ph; y_1++, sy++) {
+	            for (var x_1 = 0, sx = sbx; x_1 < pw; x_1++, sx++) {
+	                var px = pxs[x_1][y_1];
 	                if (!px.isEmpty) {
 	                    this.context.fillStyle = px.style;
 	                    this.context.fillRect(sx, sy, 1, 1);
@@ -3560,10 +3756,6 @@
 	                i++;
 	            }
 	        }
-	    };
-	    Actor.generatePixels = function (pattern, options) {
-	        if (options === void 0) { options = {}; }
-	        return pag.generate(pattern, options);
 	    };
 	    Actor.get = function (type) {
 	        return _.filter(Actor.actors, function (a) { return a.type === type; });
