@@ -22,9 +22,14 @@ export let score = 0;
 export let random: Random;
 export let scene: Scene;
 
+let options = {
+  isShowingScore: true,
+  isShowingTitle: true
+};
 let initFunc: Function;
 let initGameFunc: Function;
 let updateFunc: Function;
+let postUpdateFunc: Function;
 let onSeedChangedFunc: Function;
 let actorGeneratorFunc: Function;
 let getReplayStatusFunc: Function;
@@ -38,10 +43,12 @@ export enum Scene {
 };
 
 export function init
-  (_initFunc: () => void, _initGameFunc: () => void, _updateFunc: () => void) {
+  (_initFunc: () => void, _initGameFunc: () => void, _updateFunc: () => void,
+  _postUpdateFunc: () => void = null) {
   initFunc = _initFunc;
   initGameFunc = _initGameFunc;
   updateFunc = _updateFunc;
+  postUpdateFunc = _postUpdateFunc;
   random = new Random();
   sss.init();
   new p5(_p => {
@@ -71,6 +78,12 @@ export function enableDebug(_onSeedChangedFunc = null) {
   debug.initSeedUi(setSeeds);
   debug.enableShowingErrors();
   isDebugEnabled = true;
+}
+
+export function setOptions(_options) {
+  for (let attr in _options) {
+    options[attr] = _options[attr];
+  }
 }
 
 export function setSeeds(seed: number) {
@@ -110,7 +123,7 @@ function setup() {
   Actor.init();
   initFunc();
   ui.init(screen.canvas, screen.size);
-  if (isDebugEnabled) {
+  if (isDebugEnabled || !options.isShowingTitle) {
     beginGame();
   } else {
     if (ir.loadFromUrl() === true) {
@@ -153,7 +166,12 @@ function draw() {
   updateFunc();
   ppe.update();
   Actor.update();
-  text.draw(`${score}`, 1, 1);
+  if (postUpdateFunc != null) {
+    postUpdateFunc();
+  }
+  if (options.isShowingScore) {
+    text.draw(`${score}`, 1, 1);
+  }
   drawSceneText();
   ticks++;
 }
