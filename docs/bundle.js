@@ -86,6 +86,21 @@
 	var laneCount = 8;
 	var dqnCount = 8;
 	function initGame() {
+	    _.times(16, function (i) {
+	        var edge = new Road(['xxxx']);
+	        edge.pos.x = i * 8 + 4;
+	        edge.pos.y = 14;
+	        edge = new Road(['xxxx']);
+	        edge.pos.x = i * 8 + 4;
+	        edge.pos.y = 110;
+	    });
+	    _.times(2, function (x) {
+	        _.times(7, function (y) {
+	            var line = new Road(['oooooo']);
+	            line.pos.x = x * 80 + 40;
+	            line.pos.y = 14 + 12 + y * 12;
+	        });
+	    });
 	    _.times(dqnCount, function () { return new Dqn(); });
 	    sortDqns();
 	}
@@ -200,7 +215,7 @@
 	    _.forEach(s1.Actor.get('Dqn'), function (d) {
 	        var ry = d.index * 10 + 10;
 	        d.drawPixels(8, ry);
-	        s1.text.draw("" + d.totalReward, 20, ry);
+	        s1.text.draw("" + d.totalReward, 15, ry - 2);
 	    });
 	}
 	var Car = (function (_super) {
@@ -254,8 +269,9 @@
 	}
 	var Road = (function (_super) {
 	    __extends(Road, _super);
-	    function Road() {
+	    function Road(patterns) {
 	        _super.call(this);
+	        this.pixels = pag.generate(patterns, { isMirrorY: false, seed: 1 });
 	    }
 	    return Road;
 	}(s1.Actor));
