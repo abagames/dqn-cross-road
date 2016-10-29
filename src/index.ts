@@ -54,10 +54,11 @@ function update() {
       const aliveDqn = dqns[0] as Dqn;
       aliveDqn.totalReward = 0;
       const agentJSON = aliveDqn.agent.toJSON();
-      _.times(dqnCount - 1, () => {
+      _.times(dqnCount - 2, () => {
         const d = new Dqn();
         d.agent.fromJSON(agentJSON);
       });
+      new Dqn();
       sortDqns();
     }
   }
@@ -73,6 +74,7 @@ function postUpdate() {
 
 class Dqn extends s1.Actor {
   static hueIndex = 0;
+  static sightLane = 5;
   lane = laneCount + 1;
   agent;
   totalReward = 0;
@@ -83,7 +85,7 @@ class Dqn extends s1.Actor {
   constructor() {
     super();
     const env: any = {};
-    env.getNumStates = () => 3;
+    env.getNumStates = () => Dqn.sightLane * 2;
     env.getMaxNumActions = () => 3;
     this.agent = new RL.DQNAgent(env, {});
     this.pixels = pag.generate([' x', 'xxx', 'x x'],
@@ -123,8 +125,12 @@ class Dqn extends s1.Actor {
     } else {
       this.isFirst = false;
     }
-    const state = _.times(3, i => getNearestCarDist(this.lane + i - 1));
-    const action = this.agent.act(state);
+    const state = _.times(Dqn.sightLane, i => {
+      const l = this.lane + i - (Dqn.sightLane - 1) / 2;
+      const type = l < 1 ? 1 : (l > laneCount) ? -1 : 0;
+      return [getNearestCarDist(l), type];
+    });
+    const action = this.agent.act(_.flatten(state));
     const prevLane = this.lane;
     this.lane += action - 1;
     if (this.lane > laneCount) {
@@ -169,7 +175,7 @@ class Car extends s1.Actor {
     super();
     this.lane = Math.floor(s1.p.random(1, laneCount + 1));
     this.pixels = pag.generate(['x x', 'xxx'],
-      { seed: this.lane, hue: 0.2 + this.lane * 11 % 3 * 0.1 });
+      { seed: this.lane, hue: 0.2 + getLaneSpeed(this.lane) * 0.1 });
     this.angle = this.lane % 2 * s1.p.PI;
     this.pos.y = this.lane * 12 + 8;
     sss.play(`l${this.lane}`);
@@ -177,7 +183,7 @@ class Car extends s1.Actor {
 
   update() {
     let x: number;
-    const speed = (this.lane * 11) % 3 + 1;
+    const speed = getLaneSpeed(this.lane);
     if (this.angle === 0) {
       x = this.ticks * speed;
       if (x > s1.screen.size.x) {
@@ -199,6 +205,10 @@ class Car extends s1.Actor {
     this.pos.x = x;
     super.update();
   }
+}
+
+function getLaneSpeed(lane: number) {
+  return (lane >= 1 && lane <= laneCount) ? (lane + 1) % 3 + 1 : 0;
 }
 
 function getCars(lane: number) {

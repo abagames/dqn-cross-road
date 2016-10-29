@@ -45,13 +45,13 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	__webpack_require__(1);
-	__webpack_require__(7);
-	__webpack_require__(14);
-	__webpack_require__(2);
-	__webpack_require__(12);
 	__webpack_require__(10);
+	__webpack_require__(15);
+	__webpack_require__(7);
+	__webpack_require__(13);
 	__webpack_require__(11);
-	module.exports = __webpack_require__(13);
+	__webpack_require__(12);
+	module.exports = __webpack_require__(14);
 
 
 /***/ },
@@ -64,12 +64,12 @@
 	    function __() { this.constructor = d; }
 	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 	};
-	var _ = __webpack_require__(8);
-	var pag = __webpack_require__(3);
+	var _ = __webpack_require__(2);
+	var pag = __webpack_require__(4);
 	var sss = __webpack_require__(5);
-	var gcc = __webpack_require__(17);
-	var s1 = __webpack_require__(2);
-	var RL = __webpack_require__(16);
+	var gcc = __webpack_require__(6);
+	var s1 = __webpack_require__(7);
+	var RL = __webpack_require__(17);
 	s1.init(init, initGame, update, postUpdate);
 	function init() {
 	    s1.screen.init(128, 128);
@@ -114,10 +114,11 @@
 	            var aliveDqn = dqns[0];
 	            aliveDqn.totalReward = 0;
 	            var agentJSON_1 = aliveDqn.agent.toJSON();
-	            _.times(dqnCount - 1, function () {
+	            _.times(dqnCount - 2, function () {
 	                var d = new Dqn();
 	                d.agent.fromJSON(agentJSON_1);
 	            });
+	            new Dqn();
 	            sortDqns();
 	        }
 	    }
@@ -139,7 +140,7 @@
 	        this.isFirst = true;
 	        this.index = 0;
 	        var env = {};
-	        env.getNumStates = function () { return 3; };
+	        env.getNumStates = function () { return Dqn.sightLane * 2; };
 	        env.getMaxNumActions = function () { return 3; };
 	        this.agent = new RL.DQNAgent(env, {});
 	        this.pixels = pag.generate([' x', 'xxx', 'x x'], { isMirrorY: false, hue: Dqn.hueIndex });
@@ -180,8 +181,12 @@
 	        else {
 	            this.isFirst = false;
 	        }
-	        var state = _.times(3, function (i) { return getNearestCarDist(_this.lane + i - 1); });
-	        var action = this.agent.act(state);
+	        var state = _.times(Dqn.sightLane, function (i) {
+	            var l = _this.lane + i - (Dqn.sightLane - 1) / 2;
+	            var type = l < 1 ? 1 : (l > laneCount) ? -1 : 0;
+	            return [getNearestCarDist(l), type];
+	        });
+	        var action = this.agent.act(_.flatten(state));
 	        var prevLane = this.lane;
 	        this.lane += action - 1;
 	        if (this.lane > laneCount) {
@@ -194,6 +199,7 @@
 	        }
 	    };
 	    Dqn.hueIndex = 0;
+	    Dqn.sightLane = 5;
 	    return Dqn;
 	}(s1.Actor));
 	function sortDqns(isElminating) {
@@ -225,14 +231,14 @@
 	        this.ticks = 0;
 	        this.dist = 999;
 	        this.lane = Math.floor(s1.p.random(1, laneCount + 1));
-	        this.pixels = pag.generate(['x x', 'xxx'], { seed: this.lane, hue: 0.2 + this.lane * 11 % 3 * 0.1 });
+	        this.pixels = pag.generate(['x x', 'xxx'], { seed: this.lane, hue: 0.2 + getLaneSpeed(this.lane) * 0.1 });
 	        this.angle = this.lane % 2 * s1.p.PI;
 	        this.pos.y = this.lane * 12 + 8;
 	        sss.play("l" + this.lane);
 	    }
 	    Car.prototype.update = function () {
 	        var x;
-	        var speed = (this.lane * 11) % 3 + 1;
+	        var speed = getLaneSpeed(this.lane);
 	        if (this.angle === 0) {
 	            x = this.ticks * speed;
 	            if (x > s1.screen.size.x) {
@@ -257,6 +263,9 @@
 	    };
 	    return Car;
 	}(s1.Actor));
+	function getLaneSpeed(lane) {
+	    return (lane >= 1 && lane <= laneCount) ? (lane + 1) % 3 + 1 : 0;
+	}
 	function getCars(lane) {
 	    return _.filter(s1.Actor.get('Car'), function (c) { return c.lane === lane; });
 	}
@@ -279,3529 +288,6 @@
 
 /***/ },
 /* 2 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	var pag = __webpack_require__(3);
-	var ppe = __webpack_require__(4);
-	var sss = __webpack_require__(5);
-	var ir = __webpack_require__(6);
-	var actor_1 = __webpack_require__(7);
-	var random_1 = __webpack_require__(12);
-	var ui = __webpack_require__(13);
-	exports.ui = ui;
-	var screen = __webpack_require__(10);
-	exports.screen = screen;
-	var text = __webpack_require__(11);
-	exports.text = text;
-	var debug = __webpack_require__(14);
-	exports.debug = debug;
-	var actor_2 = __webpack_require__(7);
-	exports.Actor = actor_2.default;
-	var random_2 = __webpack_require__(12);
-	exports.Random = random_2.default;
-	exports.p5 = __webpack_require__(15);
-	exports.ticks = 0;
-	exports.score = 0;
-	var options = {
-	    isShowingScore: true,
-	    isShowingTitle: true
-	};
-	var initFunc;
-	var initGameFunc;
-	var updateFunc;
-	var postUpdateFunc;
-	var onSeedChangedFunc;
-	var actorGeneratorFunc;
-	var getReplayStatusFunc;
-	var setReplayStatusFunc;
-	var title = 'N/A';
-	var titleCont;
-	var isDebugEnabled = false;
-	(function (Scene) {
-	    Scene[Scene["title"] = 0] = "title";
-	    Scene[Scene["game"] = 1] = "game";
-	    Scene[Scene["gameover"] = 2] = "gameover";
-	    Scene[Scene["replay"] = 3] = "replay";
-	})(exports.Scene || (exports.Scene = {}));
-	var Scene = exports.Scene;
-	;
-	function init(_initFunc, _initGameFunc, _updateFunc, _postUpdateFunc) {
-	    if (_postUpdateFunc === void 0) { _postUpdateFunc = null; }
-	    initFunc = _initFunc;
-	    initGameFunc = _initGameFunc;
-	    updateFunc = _updateFunc;
-	    postUpdateFunc = _postUpdateFunc;
-	    exports.random = new random_1.default();
-	    sss.init();
-	    new exports.p5(function (_p) {
-	        exports.p = _p;
-	        exports.createVector = exports.p.createVector;
-	        exports.p.setup = setup;
-	        exports.p.draw = draw;
-	    });
-	}
-	exports.init = init;
-	function setTitle(_title, _titleCont) {
-	    if (_titleCont === void 0) { _titleCont = null; }
-	    title = _title;
-	    titleCont = _titleCont;
-	}
-	exports.setTitle = setTitle;
-	function setReplayFuncs(_actorGeneratorFunc, _getReplayStatusFunc, _setReplayStatusFunc) {
-	    if (_getReplayStatusFunc === void 0) { _getReplayStatusFunc = null; }
-	    if (_setReplayStatusFunc === void 0) { _setReplayStatusFunc = null; }
-	    actorGeneratorFunc = _actorGeneratorFunc;
-	    getReplayStatusFunc = _getReplayStatusFunc;
-	    setReplayStatusFunc = _setReplayStatusFunc;
-	}
-	exports.setReplayFuncs = setReplayFuncs;
-	function enableDebug(_onSeedChangedFunc) {
-	    if (_onSeedChangedFunc === void 0) { _onSeedChangedFunc = null; }
-	    onSeedChangedFunc = _onSeedChangedFunc;
-	    debug.initSeedUi(setSeeds);
-	    debug.enableShowingErrors();
-	    isDebugEnabled = true;
-	}
-	exports.enableDebug = enableDebug;
-	function setOptions(_options) {
-	    for (var attr in _options) {
-	        options[attr] = _options[attr];
-	    }
-	}
-	exports.setOptions = setOptions;
-	function setSeeds(seed) {
-	    pag.setSeed(seed);
-	    ppe.setSeed(seed);
-	    ppe.reset();
-	    sss.reset();
-	    sss.setSeed(seed);
-	    if (exports.scene === Scene.game) {
-	        sss.playBgm();
-	    }
-	    if (onSeedChangedFunc != null) {
-	        onSeedChangedFunc();
-	    }
-	}
-	exports.setSeeds = setSeeds;
-	function endGame() {
-	    if (exports.scene === Scene.gameover) {
-	        return;
-	    }
-	    var isReplay = exports.scene === Scene.replay;
-	    exports.scene = Scene.gameover;
-	    exports.ticks = 0;
-	    sss.stopBgm();
-	    if (!isReplay) {
-	        ir.saveAsUrl();
-	    }
-	}
-	exports.endGame = endGame;
-	function addScore(v) {
-	    if (exports.scene === Scene.game || exports.scene === Scene.replay) {
-	        exports.score += v;
-	    }
-	}
-	exports.addScore = addScore;
-	function setup() {
-	    actor_1.default.init();
-	    initFunc();
-	    ui.init(screen.canvas, screen.size);
-	    if (isDebugEnabled || !options.isShowingTitle) {
-	        beginGame();
-	    }
-	    else {
-	        if (ir.loadFromUrl() === true) {
-	            beginReplay();
-	        }
-	        else {
-	            beginTitle();
-	            initGameFunc();
-	        }
-	    }
-	}
-	function beginGame() {
-	    exports.scene = Scene.game;
-	    exports.score = exports.ticks = 0;
-	    sss.playBgm();
-	    ir.startRecord();
-	    actor_1.default.clear();
-	    initGameFunc();
-	}
-	function beginTitle() {
-	    exports.scene = Scene.title;
-	    exports.ticks = 0;
-	}
-	function beginReplay() {
-	    var status = ir.startReplay();
-	    if (status !== false) {
-	        exports.scene = Scene.replay;
-	        actor_1.default.clear();
-	        initGameFunc();
-	        setStatus(status);
-	    }
-	}
-	function draw() {
-	    screen.clear();
-	    handleScene();
-	    sss.update();
-	    updateFunc();
-	    ppe.update();
-	    actor_1.default.update();
-	    if (postUpdateFunc != null) {
-	        postUpdateFunc();
-	    }
-	    if (options.isShowingScore) {
-	        text.draw("" + exports.score, 1, 1);
-	    }
-	    drawSceneText();
-	    exports.ticks++;
-	}
-	function handleScene() {
-	    if (exports.scene !== Scene.game && ui.isPressed) {
-	        beginGame();
-	    }
-	    ui.resetPressed();
-	    if (exports.scene === Scene.game) {
-	        ir.record(getStatus(), ui.getReplayEvents());
-	    }
-	    if (exports.scene === Scene.gameover && exports.ticks === 60) {
-	        beginTitle();
-	    }
-	    if (exports.scene === Scene.title && exports.ticks === 120) {
-	        beginReplay();
-	    }
-	    if (exports.scene === Scene.replay) {
-	        var events = ir.getEvents();
-	        if (events !== false) {
-	            ui.setReplayEvents(events);
-	        }
-	        else {
-	            beginTitle();
-	        }
-	    }
-	}
-	function drawSceneText() {
-	    switch (exports.scene) {
-	        case Scene.title:
-	            if (titleCont == null) {
-	                text.draw(title, screen.size.x / 2, screen.size.y * 0.48, true);
-	            }
-	            else {
-	                text.draw(title, screen.size.x / 2, screen.size.y * 0.4, true);
-	                text.draw(titleCont, screen.size.x / 2, screen.size.y * 0.48, true);
-	            }
-	            break;
-	        case Scene.gameover:
-	            text.draw('GAME OVER', screen.size.x / 2, screen.size.y * 0.45, true);
-	            break;
-	        case Scene.replay:
-	            text.draw('REPLAY', screen.size.x / 2, screen.size.y * 0.55, true);
-	            break;
-	    }
-	}
-	function getStatus() {
-	    var status = [exports.ticks, exports.score, exports.random.getStatus(), actor_1.default.getReplayStatus()];
-	    if (getReplayStatusFunc != null) {
-	        status.push(getReplayStatusFunc());
-	    }
-	    return status;
-	}
-	function setStatus(status) {
-	    actor_1.default.setReplayStatus(status[3], actorGeneratorFunc);
-	    if (setReplayStatusFunc != null) {
-	        setReplayStatusFunc(status[4]);
-	    }
-	    exports.ticks = status[0];
-	    exports.score = status[1];
-	    exports.random.setStatus(status[2]);
-	}
-
-
-/***/ },
-/* 3 */
-/***/ function(module, exports, __webpack_require__) {
-
-	(function webpackUniversalModuleDefinition(root, factory) {
-		if(true)
-			module.exports = factory();
-		else if(typeof define === 'function' && define.amd)
-			define([], factory);
-		else if(typeof exports === 'object')
-			exports["pag"] = factory();
-		else
-			root["pag"] = factory();
-	})(this, function() {
-	return /******/ (function(modules) { // webpackBootstrap
-	/******/ 	// The module cache
-	/******/ 	var installedModules = {};
-	
-	/******/ 	// The require function
-	/******/ 	function __webpack_require__(moduleId) {
-	
-	/******/ 		// Check if module is in cache
-	/******/ 		if(installedModules[moduleId])
-	/******/ 			return installedModules[moduleId].exports;
-	
-	/******/ 		// Create a new module (and put it into the cache)
-	/******/ 		var module = installedModules[moduleId] = {
-	/******/ 			exports: {},
-	/******/ 			id: moduleId,
-	/******/ 			loaded: false
-	/******/ 		};
-	
-	/******/ 		// Execute the module function
-	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-	
-	/******/ 		// Flag the module as loaded
-	/******/ 		module.loaded = true;
-	
-	/******/ 		// Return the exports of the module
-	/******/ 		return module.exports;
-	/******/ 	}
-	
-	
-	/******/ 	// expose the modules object (__webpack_modules__)
-	/******/ 	__webpack_require__.m = modules;
-	
-	/******/ 	// expose the module cache
-	/******/ 	__webpack_require__.c = installedModules;
-	
-	/******/ 	// __webpack_public_path__
-	/******/ 	__webpack_require__.p = "";
-	
-	/******/ 	// Load entry module and return exports
-	/******/ 	return __webpack_require__(0);
-	/******/ })
-	/************************************************************************/
-	/******/ ([
-	/* 0 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		module.exports = __webpack_require__(1);
-	
-	
-	/***/ },
-	/* 1 */
-	/***/ function(module, exports) {
-	
-		"use strict";
-		exports.defaultOptions = {
-		    isMirrorX: false,
-		    isMirrorY: false,
-		    seed: 0,
-		    hue: null,
-		    saturation: 0.8,
-		    value: 1,
-		    rotationNum: 1,
-		    scale: 1,
-		    scaleX: null,
-		    scaleY: null,
-		    colorNoise: 0.1,
-		    colorLighting: 1,
-		    edgeDarkness: 0.4,
-		    isShowingEdge: true,
-		    isShowingBody: true,
-		};
-		var generatedPixels = {};
-		var seed = 0;
-		function setSeed(_seed) {
-		    if (_seed === void 0) { _seed = 0; }
-		    seed = _seed;
-		}
-		exports.setSeed = setSeed;
-		function generate(patterns, _options) {
-		    if (_options === void 0) { _options = {}; }
-		    _options.baseSeed = seed;
-		    var jso = JSON.stringify({ patterns: patterns, options: _options });
-		    if (generatedPixels[jso]) {
-		        return generatedPixels[jso];
-		    }
-		    var options = {};
-		    forOwn(exports.defaultOptions, function (v, k) {
-		        options[k] = v;
-		    });
-		    forOwn(_options, function (v, k) {
-		        options[k] = v;
-		    });
-		    var random = new Random();
-		    var rndSeed = seed + getHashFromString(patterns.join());
-		    if (options.seed != null) {
-		        rndSeed += options.seed;
-		    }
-		    random.setSeed(rndSeed);
-		    if (options.hue == null) {
-		        options.hue = random.get01();
-		    }
-		    if (options.scaleX == null) {
-		        options.scaleX = options.scale;
-		    }
-		    if (options.scaleY == null) {
-		        options.scaleY = options.scale;
-		    }
-		    var pixels = generatePixels(patterns, options, random);
-		    var result;
-		    if (options.rotationNum > 1) {
-		        result = map(createRotated(pixels, options.rotationNum), function (p) {
-		            return createColored(p, options);
-		        });
-		    }
-		    else {
-		        result = [createColored(pixels, options)];
-		    }
-		    generatedPixels[jso] = result;
-		    return result;
-		}
-		exports.generate = generate;
-		var Pixel = (function () {
-		    function Pixel() {
-		        this.r = 0;
-		        this.g = 0;
-		        this.b = 0;
-		        this.isEmpty = true;
-		    }
-		    Pixel.prototype.setFromHsv = function (hue, saturation, value) {
-		        this.isEmpty = false;
-		        this.r = value;
-		        this.g = value;
-		        this.b = value;
-		        var h = hue * 6;
-		        var i = Math.floor(h);
-		        var f = h - i;
-		        switch (i) {
-		            case 0:
-		                this.g *= 1 - saturation * (1 - f);
-		                this.b *= 1 - saturation;
-		                break;
-		            case 1:
-		                this.b *= 1 - saturation;
-		                this.r *= 1 - saturation * f;
-		                break;
-		            case 2:
-		                this.b *= 1 - saturation * (1 - f);
-		                this.r *= 1 - saturation;
-		                break;
-		            case 3:
-		                this.r *= 1 - saturation;
-		                this.g *= 1 - saturation * f;
-		                break;
-		            case 4:
-		                this.r *= 1 - saturation * (1 - f);
-		                this.g *= 1 - saturation;
-		                break;
-		            case 5:
-		                this.g *= 1 - saturation;
-		                this.b *= 1 - saturation * f;
-		                break;
-		        }
-		        this.setStyle();
-		    };
-		    Pixel.prototype.setStyle = function () {
-		        var r = Math.floor(this.r * 255);
-		        var g = Math.floor(this.g * 255);
-		        var b = Math.floor(this.b * 255);
-		        this.style = "rgb(" + r + "," + g + "," + b + ")";
-		    };
-		    return Pixel;
-		}());
-		exports.Pixel = Pixel;
-		function generatePixels(patterns, options, random) {
-		    var pw = reduce(patterns, function (w, p) { return Math.max(w, p.length); }, 0);
-		    var ph = patterns.length;
-		    var w = Math.round(pw * options.scaleX);
-		    var h = Math.round(ph * options.scaleY);
-		    w += options.isMirrorX ? 1 : 2;
-		    h += options.isMirrorY ? 1 : 2;
-		    var pixels = createPixels(patterns, pw, ph, w, h, options.scaleX, options.scaleY, random);
-		    if (options.isMirrorX) {
-		        pixels = mirrorX(pixels, w, h);
-		        w *= 2;
-		    }
-		    if (options.isMirrorY) {
-		        pixels = mirrorY(pixels, w, h);
-		        h *= 2;
-		    }
-		    pixels = createEdge(pixels, w, h);
-		    return pixels;
-		}
-		function createPixels(patterns, pw, ph, w, h, scaleX, scaleY, random) {
-		    return timesMap(w, function (x) {
-		        var px = Math.floor((x - 1) / scaleX);
-		        return timesMap(h, function (y) {
-		            var py = Math.floor((y - 1) / scaleY);
-		            if (px < 0 || px >= pw || py < 0 || py >= ph) {
-		                return 0;
-		            }
-		            var c = px < patterns[py].length ? patterns[py][px] : ' ';
-		            var m = 0;
-		            if (c === '-') {
-		                m = random.get01() < 0.5 ? 1 : 0;
-		            }
-		            else if (c === 'x' || c === 'X') {
-		                m = random.get01() < 0.5 ? 1 : -1;
-		            }
-		            else if (c === 'o' || c === 'O') {
-		                m = -1;
-		            }
-		            else if (c === '*') {
-		                m = 1;
-		            }
-		            return m;
-		        });
-		    });
-		}
-		function mirrorX(pixels, w, h) {
-		    return timesMap(w * 2, function (x) { return timesMap(h, function (y) {
-		        return x < w ? pixels[x][y] : pixels[w * 2 - x - 1][y];
-		    }); });
-		}
-		function mirrorY(pixels, w, h) {
-		    return timesMap(w, function (x) { return timesMap(h * 2, function (y) {
-		        return y < h ? pixels[x][y] : pixels[x][h * 2 - y - 1];
-		    }); });
-		}
-		function createEdge(pixels, w, h) {
-		    return timesMap(w, function (x) { return timesMap(h, function (y) {
-		        return ((pixels[x][y] === 0 &&
-		            ((x - 1 >= 0 && pixels[x - 1][y] > 0) ||
-		                (x + 1 < w && pixels[x + 1][y] > 0) ||
-		                (y - 1 >= 0 && pixels[x][y - 1] > 0) ||
-		                (y + 1 < h && pixels[x][y + 1] > 0))) ?
-		            -1 : pixels[x][y]);
-		    }); });
-		}
-		function createRotated(pixels, rotationNum) {
-		    var pw = pixels.length;
-		    var ph = pixels[0].length;
-		    var pcx = pw / 2;
-		    var pcy = ph / 2;
-		    var w = Math.round(pw * 1.5 / 2) * 2;
-		    var h = Math.round(ph * 1.5 / 2) * 2;
-		    var cx = w / 2;
-		    var cy = h / 2;
-		    var offset = { x: 0, y: 0 };
-		    return timesMap(rotationNum, function (ai) {
-		        var angle = -ai * Math.PI * 2 / rotationNum;
-		        return timesMap(w, function (x) { return timesMap(h, function (y) {
-		            offset.x = x - cx;
-		            offset.y = y - cy;
-		            rotateVector(offset, angle);
-		            var px = Math.round(offset.x + pcx);
-		            var py = Math.round(offset.y + pcy);
-		            return (px < 0 || px >= pw || py < 0 || py >= ph) ?
-		                0 : pixels[px][py];
-		        }); });
-		    });
-		}
-		function rotateVector(v, angle) {
-		    var vx = v.x;
-		    v.x = Math.cos(angle) * vx - Math.sin(angle) * v.y;
-		    v.y = Math.sin(angle) * vx + Math.cos(angle) * v.y;
-		}
-		function createColored(pixels, options) {
-		    var w = pixels.length;
-		    var h = pixels[0].length;
-		    var random = new Random();
-		    random.setSeed(options.seed);
-		    return timesMap(w, function (x) { return timesMap(h, function (y) {
-		        var p = pixels[x][y];
-		        if ((p === 1 && !options.isShowingBody) ||
-		            (p === -1 && !options.isShowingEdge)) {
-		            return new Pixel();
-		        }
-		        if (p !== 0) {
-		            var l = Math.sin(y / h * Math.PI) * options.colorLighting +
-		                (1 - options.colorLighting);
-		            var v = (l * (1 - options.colorNoise) +
-		                random.get01() * options.colorNoise) * options.value;
-		            v = v >= 0 ? (v <= 1 ? v : 1) : 0;
-		            if (p === -1) {
-		                v *= (1 - options.edgeDarkness);
-		            }
-		            var px = new Pixel();
-		            px.setFromHsv(options.hue, options.saturation, v);
-		            return px;
-		        }
-		        else {
-		            return new Pixel();
-		        }
-		    }); });
-		}
-		function getHashFromString(str) {
-		    var hash = 0;
-		    var len = str.length;
-		    for (var i = 0; i < len; i++) {
-		        var chr = str.charCodeAt(i);
-		        hash = ((hash << 5) - hash) + chr;
-		        hash |= 0;
-		    }
-		    return hash;
-		}
-		function nArray(n, v) {
-		    var a = [];
-		    for (var i = 0; i < n; i++) {
-		        a.push(v);
-		    }
-		    return a;
-		}
-		function times(n, func) {
-		    for (var i = 0; i < n; i++) {
-		        func(i);
-		    }
-		}
-		function timesMap(n, func) {
-		    var result = [];
-		    for (var i = 0; i < n; i++) {
-		        result.push(func(i));
-		    }
-		    return result;
-		}
-		function forEach(array, func) {
-		    for (var i = 0; i < array.length; i++) {
-		        func(array[i]);
-		    }
-		}
-		function forOwn(obj, func) {
-		    for (var p in obj) {
-		        func(obj[p], p);
-		    }
-		}
-		function map(array, func) {
-		    var result = [];
-		    for (var i = 0; i < array.length; i++) {
-		        result.push(func(array[i], i));
-		    }
-		    return result;
-		}
-		function reduce(array, func, initValue) {
-		    var result = initValue;
-		    for (var i = 0; i < array.length; i++) {
-		        result = func(result, array[i], i);
-		    }
-		    return result;
-		}
-		var Random = (function () {
-		    function Random() {
-		        this.setSeed();
-		        this.get01 = this.get01.bind(this);
-		    }
-		    Random.prototype.setSeed = function (v) {
-		        if (v === void 0) { v = -0x7fffffff; }
-		        if (v === -0x7fffffff) {
-		            v = Math.floor(Math.random() * 0x7fffffff);
-		        }
-		        this.x = v = 1812433253 * (v ^ (v >> 30));
-		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
-		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
-		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
-		        return this;
-		    };
-		    Random.prototype.getInt = function () {
-		        var t = this.x ^ (this.x << 11);
-		        this.x = this.y;
-		        this.y = this.z;
-		        this.z = this.w;
-		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
-		        return this.w;
-		    };
-		    Random.prototype.get01 = function () {
-		        return this.getInt() / 0x7fffffff;
-		    };
-		    return Random;
-		}());
-	
-	
-	/***/ }
-	/******/ ])
-	});
-	;
-
-/***/ },
-/* 4 */
-/***/ function(module, exports, __webpack_require__) {
-
-	(function webpackUniversalModuleDefinition(root, factory) {
-		if(true)
-			module.exports = factory();
-		else if(typeof define === 'function' && define.amd)
-			define([], factory);
-		else if(typeof exports === 'object')
-			exports["ppe"] = factory();
-		else
-			root["ppe"] = factory();
-	})(this, function() {
-	return /******/ (function(modules) { // webpackBootstrap
-	/******/ 	// The module cache
-	/******/ 	var installedModules = {};
-	
-	/******/ 	// The require function
-	/******/ 	function __webpack_require__(moduleId) {
-	
-	/******/ 		// Check if module is in cache
-	/******/ 		if(installedModules[moduleId])
-	/******/ 			return installedModules[moduleId].exports;
-	
-	/******/ 		// Create a new module (and put it into the cache)
-	/******/ 		var module = installedModules[moduleId] = {
-	/******/ 			exports: {},
-	/******/ 			id: moduleId,
-	/******/ 			loaded: false
-	/******/ 		};
-	
-	/******/ 		// Execute the module function
-	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-	
-	/******/ 		// Flag the module as loaded
-	/******/ 		module.loaded = true;
-	
-	/******/ 		// Return the exports of the module
-	/******/ 		return module.exports;
-	/******/ 	}
-	
-	
-	/******/ 	// expose the modules object (__webpack_modules__)
-	/******/ 	__webpack_require__.m = modules;
-	
-	/******/ 	// expose the module cache
-	/******/ 	__webpack_require__.c = installedModules;
-	
-	/******/ 	// __webpack_public_path__
-	/******/ 	__webpack_require__.p = "";
-	
-	/******/ 	// Load entry module and return exports
-	/******/ 	return __webpack_require__(0);
-	/******/ })
-	/************************************************************************/
-	/******/ ([
-	/* 0 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		module.exports = __webpack_require__(1);
-	
-	
-	/***/ },
-	/* 1 */
-	/***/ function(module, exports) {
-	
-		"use strict";
-		exports.options = {
-		    scaleRatio: 1,
-		    canvas: null
-		};
-		var emitters = {};
-		var seed = 0;
-		var context;
-		// emit the particle.
-		// specify the type with the first character of the patternName
-		// (e: explosion, m: muzzle, s: spark, t: trail, j: jet)
-		function emit(patternName, x, y, angle, sizeScale, countScale, hue, velX, velY) {
-		    if (angle === void 0) { angle = 0; }
-		    if (sizeScale === void 0) { sizeScale = 1; }
-		    if (countScale === void 0) { countScale = 1; }
-		    if (hue === void 0) { hue = null; }
-		    if (velX === void 0) { velX = 0; }
-		    if (velY === void 0) { velY = 0; }
-		    if (emitters[patternName] == null) {
-		        var random_1 = new Random();
-		        random_1.setSeed(seed + getHashFromString(patternName));
-		        emitters[patternName] = new Emitter(patternName[0], sizeScale, countScale, hue, random_1);
-		    }
-		    emitters[patternName].emit(x, y, angle, velX, velY);
-		}
-		exports.emit = emit;
-		function update() {
-		    Particle.update();
-		}
-		exports.update = update;
-		function getParticles() {
-		    return Particle.s;
-		}
-		exports.getParticles = getParticles;
-		function setSeed(_seed) {
-		    if (_seed === void 0) { _seed = 0; }
-		    seed = _seed;
-		}
-		exports.setSeed = setSeed;
-		function reset() {
-		    emitters = {};
-		    Particle.s = [];
-		}
-		exports.reset = reset;
-		var Emitter = (function () {
-		    function Emitter(patternType, sizeScale, countScale, hue, random) {
-		        if (sizeScale === void 0) { sizeScale = 1; }
-		        if (countScale === void 0) { countScale = 1; }
-		        if (hue === void 0) { hue = null; }
-		        this.base = new Particle();
-		        this.angleDeflection = 0;
-		        this.speedDeflection = 0.5;
-		        this.sizeDeflection = 0.5;
-		        this.ticksDeflection = 0.3;
-		        this.count = 1;
-		        if (hue == null) {
-		            hue = random.get01();
-		        }
-		        switch (patternType) {
-		            case 'e':
-		                this.base.speed = 0.7;
-		                this.base.slowdownRatio = 0.05;
-		                this.base.targetSize = 10;
-		                this.base.beginColor = new Color(hue, 1, 0.5, 0.3);
-		                this.base.middleColor = new Color(hue, 0.2, 1, 0.1);
-		                this.base.endColor = new Color(hue, 0, 0, 0);
-		                this.base.middleTicks = 20;
-		                this.base.endTicks = 30;
-		                this.angleDeflection = Math.PI * 2;
-		                this.count = 15;
-		                break;
-		            case 'm':
-		            case 's':
-		                this.base.speed = patternType === 'm' ? 1.5 : 0.5;
-		                this.base.slowdownRatio = 0.025;
-		                this.base.targetSize = 5;
-		                this.base.beginColor = new Color(hue, 0.5, 0.5, 0.3);
-		                this.base.middleColor = new Color(hue, 1, 1, 0.3);
-		                this.base.endColor = new Color(hue, 0.75, 0.75, 0.2);
-		                this.base.middleTicks = 10;
-		                this.base.endTicks = 20;
-		                this.angleDeflection = patternType === 'm' ?
-		                    0.3 * random.getForParam() : Math.PI * 2;
-		                this.count = 10;
-		                break;
-		            case 't':
-		            case 'j':
-		                this.base.speed = patternType === 't' ? 0.1 : 1;
-		                this.base.slowdownRatio = 0.03;
-		                this.base.targetSize = patternType === 't' ? 3 : 7;
-		                this.base.beginColor = new Color(hue, 0.7, 0.7, 0.4);
-		                this.base.middleColor = new Color(hue, 1, 1, 0.2);
-		                this.base.endColor = new Color(hue, 0.7, 0.7, 0.1);
-		                this.base.middleTicks = patternType === 't' ? 30 : 15;
-		                this.base.endTicks = patternType === 't' ? 40 : 20;
-		                this.angleDeflection = 0.5 * random.getForParam();
-		                this.speedDeflection = 0.1;
-		                this.sizeDeflection = 0.1;
-		                this.ticksDeflection = 0.1;
-		                this.count = 0.5;
-		                break;
-		        }
-		        this.base.speed *= sizeScale * exports.options.scaleRatio;
-		        this.base.targetSize *= sizeScale * exports.options.scaleRatio;
-		        this.count *= countScale;
-		        this.base.speed *= random.getForParam();
-		        this.base.slowdownRatio *= random.getForParam();
-		        this.base.targetSize *= random.getForParam();
-		        var em = this.base.endTicks - this.base.middleTicks;
-		        this.base.middleTicks *= random.getForParam();
-		        this.base.endTicks = this.base.middleTicks + em * random.getForParam();
-		        this.speedDeflection *= random.getForParam();
-		        this.sizeDeflection *= random.getForParam();
-		        this.ticksDeflection *= random.getForParam();
-		        this.count *= random.getForParam();
-		    }
-		    Emitter.prototype.emit = function (x, y, angle, velX, velY) {
-		        if (angle === void 0) { angle = 0; }
-		        if (velX === void 0) { velX = 0; }
-		        if (velY === void 0) { velY = 0; }
-		        if (this.count < 1 && this.count < Math.random()) {
-		            return;
-		        }
-		        for (var i = 0; i < this.count; i++) {
-		            var p = new Particle();
-		            p.pos.x = x;
-		            p.pos.y = y;
-		            p.vel.x = velX;
-		            p.vel.y = velY;
-		            p.angle = angle + (Math.random() - 0.5) * this.angleDeflection;
-		            p.speed = this.base.speed *
-		                ((Math.random() * 2 - 1) * this.speedDeflection + 1);
-		            p.slowdownRatio = this.base.slowdownRatio;
-		            p.targetSize = this.base.targetSize *
-		                ((Math.random() * 2 - 1) * this.sizeDeflection + 1);
-		            p.middleTicks = this.base.middleTicks *
-		                ((Math.random() * 2 - 1) * this.ticksDeflection + 1);
-		            p.endTicks = this.base.endTicks *
-		                ((Math.random() * 2 - 1) * this.ticksDeflection + 1);
-		            p.beginColor = this.base.beginColor;
-		            p.middleColor = this.base.middleColor;
-		            p.endColor = this.base.endColor;
-		            Particle.s.push(p);
-		        }
-		    };
-		    return Emitter;
-		}());
-		exports.Emitter = Emitter;
-		var Particle = (function () {
-		    function Particle() {
-		        this.pos = new Vector();
-		        this.vel = new Vector();
-		        this.size = 0;
-		        this.angle = 0;
-		        this.speed = 1;
-		        this.slowdownRatio = 0.01;
-		        this.targetSize = 10;
-		        this.middleTicks = 20;
-		        this.endTicks = 60;
-		        this.ticks = 0;
-		    }
-		    Particle.prototype.update = function () {
-		        this.pos.x += Math.cos(this.angle) * this.speed + this.vel.x;
-		        this.pos.y += Math.sin(this.angle) * this.speed + this.vel.y;
-		        this.speed *= (1 - this.slowdownRatio);
-		        this.vel.x *= 0.99;
-		        this.vel.y *= 0.99;
-		        if (this.ticks >= this.endTicks) {
-		            return false;
-		        }
-		        if (this.ticks < this.middleTicks) {
-		            this.color = this.beginColor.getLerped(this.middleColor, this.ticks / this.middleTicks);
-		            this.size += (this.targetSize - this.size) * 0.1;
-		        }
-		        else {
-		            this.color = this.middleColor.getLerped(this.endColor, (this.ticks - this.middleTicks) / (this.endTicks - this.middleTicks));
-		            this.size *= 0.95;
-		        }
-		        this.color = this.color.getSparkled();
-		        if (context != null) {
-		            context.fillStyle = this.color.getStyle();
-		            context.fillRect(this.pos.x - this.size / 2, this.pos.y - this.size / 2, this.size, this.size);
-		        }
-		        this.ticks++;
-		    };
-		    Particle.update = function () {
-		        if (context == null && exports.options.canvas != null) {
-		            context = exports.options.canvas.getContext('2d');
-		        }
-		        for (var i = 0; i < Particle.s.length;) {
-		            if (Particle.s[i].update() === false) {
-		                Particle.s.splice(i, 1);
-		            }
-		            else {
-		                i++;
-		            }
-		        }
-		    };
-		    Particle.s = [];
-		    return Particle;
-		}());
-		exports.Particle = Particle;
-		var Vector = (function () {
-		    function Vector(x, y) {
-		        if (x === void 0) { x = 0; }
-		        if (y === void 0) { y = 0; }
-		        this.x = x;
-		        this.y = y;
-		    }
-		    return Vector;
-		}());
-		exports.Vector = Vector;
-		var Color = (function () {
-		    function Color(hue, saturation, value, sparkleRatio) {
-		        if (hue === void 0) { hue = 0; }
-		        if (saturation === void 0) { saturation = 1; }
-		        if (value === void 0) { value = 1; }
-		        if (sparkleRatio === void 0) { sparkleRatio = 0; }
-		        this.hue = hue;
-		        this.saturation = saturation;
-		        this.value = value;
-		        this.sparkleRatio = sparkleRatio;
-		        this.r = 0;
-		        this.g = 0;
-		        this.b = 0;
-		        this.r = value;
-		        this.g = value;
-		        this.b = value;
-		        var h = hue * 6;
-		        var i = Math.floor(h);
-		        var f = h - i;
-		        switch (i) {
-		            case 0:
-		                this.g *= 1 - saturation * (1 - f);
-		                this.b *= 1 - saturation;
-		                break;
-		            case 1:
-		                this.b *= 1 - saturation;
-		                this.r *= 1 - saturation * f;
-		                break;
-		            case 2:
-		                this.b *= 1 - saturation * (1 - f);
-		                this.r *= 1 - saturation;
-		                break;
-		            case 3:
-		                this.r *= 1 - saturation;
-		                this.g *= 1 - saturation * f;
-		                break;
-		            case 4:
-		                this.r *= 1 - saturation * (1 - f);
-		                this.g *= 1 - saturation;
-		                break;
-		            case 5:
-		                this.g *= 1 - saturation;
-		                this.b *= 1 - saturation * f;
-		                break;
-		        }
-		    }
-		    Color.prototype.getStyle = function () {
-		        var r = Math.floor(this.r * 255);
-		        var g = Math.floor(this.g * 255);
-		        var b = Math.floor(this.b * 255);
-		        return "rgb(" + r + "," + g + "," + b + ")";
-		    };
-		    Color.prototype.getSparkled = function () {
-		        if (this.sparkled == null) {
-		            this.sparkled = new Color();
-		        }
-		        this.sparkled.r = clamp(this.r + this.sparkleRatio * (Math.random() * 2 - 1));
-		        this.sparkled.g = clamp(this.g + this.sparkleRatio * (Math.random() * 2 - 1));
-		        this.sparkled.b = clamp(this.b + this.sparkleRatio * (Math.random() * 2 - 1));
-		        return this.sparkled;
-		    };
-		    Color.prototype.getLerped = function (other, ratio) {
-		        if (this.lerped == null) {
-		            this.lerped = new Color();
-		        }
-		        this.lerped.r = this.r * (1 - ratio) + other.r * ratio;
-		        this.lerped.g = this.g * (1 - ratio) + other.g * ratio;
-		        this.lerped.b = this.b * (1 - ratio) + other.b * ratio;
-		        this.lerped.sparkleRatio =
-		            this.sparkleRatio * (1 - ratio) + other.sparkleRatio * ratio;
-		        return this.lerped;
-		    };
-		    return Color;
-		}());
-		exports.Color = Color;
-		function getHashFromString(str) {
-		    var hash = 0;
-		    var len = str.length;
-		    for (var i = 0; i < len; i++) {
-		        var chr = str.charCodeAt(i);
-		        hash = ((hash << 5) - hash) + chr;
-		        hash |= 0;
-		    }
-		    return hash;
-		}
-		function clamp(v) {
-		    if (v <= 0) {
-		        return 0;
-		    }
-		    else if (v >= 1) {
-		        return 1;
-		    }
-		    else {
-		        return v;
-		    }
-		}
-		var Random = (function () {
-		    function Random() {
-		        this.setSeed();
-		        this.get01 = this.get01.bind(this);
-		    }
-		    Random.prototype.setSeed = function (v) {
-		        if (v === void 0) { v = -0x7fffffff; }
-		        if (v === -0x7fffffff) {
-		            v = Math.floor(Math.random() * 0x7fffffff);
-		        }
-		        this.x = v = 1812433253 * (v ^ (v >> 30));
-		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
-		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
-		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
-		        return this;
-		    };
-		    Random.prototype.getInt = function () {
-		        var t = this.x ^ (this.x << 11);
-		        this.x = this.y;
-		        this.y = this.z;
-		        this.z = this.w;
-		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
-		        return this.w;
-		    };
-		    Random.prototype.get01 = function () {
-		        return this.getInt() / 0x7fffffff;
-		    };
-		    Random.prototype.getForParam = function () {
-		        return this.get01() + 0.5;
-		    };
-		    return Random;
-		}());
-	
-	
-	/***/ }
-	/******/ ])
-	});
-	;
-
-/***/ },
-/* 5 */
-/***/ function(module, exports, __webpack_require__) {
-
-	(function webpackUniversalModuleDefinition(root, factory) {
-		if(true)
-			module.exports = factory();
-		else if(typeof define === 'function' && define.amd)
-			define([], factory);
-		else if(typeof exports === 'object')
-			exports["sss"] = factory();
-		else
-			root["sss"] = factory();
-	})(this, function() {
-	return /******/ (function(modules) { // webpackBootstrap
-	/******/ 	// The module cache
-	/******/ 	var installedModules = {};
-	
-	/******/ 	// The require function
-	/******/ 	function __webpack_require__(moduleId) {
-	
-	/******/ 		// Check if module is in cache
-	/******/ 		if(installedModules[moduleId])
-	/******/ 			return installedModules[moduleId].exports;
-	
-	/******/ 		// Create a new module (and put it into the cache)
-	/******/ 		var module = installedModules[moduleId] = {
-	/******/ 			exports: {},
-	/******/ 			id: moduleId,
-	/******/ 			loaded: false
-	/******/ 		};
-	
-	/******/ 		// Execute the module function
-	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-	
-	/******/ 		// Flag the module as loaded
-	/******/ 		module.loaded = true;
-	
-	/******/ 		// Return the exports of the module
-	/******/ 		return module.exports;
-	/******/ 	}
-	
-	
-	/******/ 	// expose the modules object (__webpack_modules__)
-	/******/ 	__webpack_require__.m = modules;
-	
-	/******/ 	// expose the module cache
-	/******/ 	__webpack_require__.c = installedModules;
-	
-	/******/ 	// __webpack_public_path__
-	/******/ 	__webpack_require__.p = "";
-	
-	/******/ 	// Load entry module and return exports
-	/******/ 	return __webpack_require__(0);
-	/******/ })
-	/************************************************************************/
-	/******/ ([
-	/* 0 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		module.exports = __webpack_require__(3);
-	
-	
-	/***/ },
-	/* 1 */,
-	/* 2 */,
-	/* 3 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		"use strict";
-		var __extends = (this && this.__extends) || function (d, b) {
-		    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-		    function __() { this.constructor = d; }
-		    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-		};
-		var jsfx = __webpack_require__(4);
-		var live;
-		var random;
-		var buffers = {};
-		var tracks = [];
-		var schedulingInterval;
-		var seed;
-		function init(_seed, tempo, fps) {
-		    if (_seed === void 0) { _seed = 0; }
-		    if (tempo === void 0) { tempo = 120; }
-		    if (fps === void 0) { fps = 60; }
-		    live = jsfx.Live({});
-		    setVolume(0.1);
-		    seed = _seed;
-		    random = new Random();
-		    jsfx.setRandomFunc(random.get01);
-		    exports.playInterval = 60 / tempo;
-		    schedulingInterval = 1 / fps * 2;
-		}
-		exports.init = init;
-		function setSeed(_seed) {
-		    if (_seed === void 0) { _seed = 0; }
-		    seed = _seed;
-		}
-		exports.setSeed = setSeed;
-		exports.Preset = jsfx.Preset;
-		var playPrefixes = {
-		    c: exports.Preset.Coin,
-		    l: exports.Preset.Laser,
-		    e: exports.Preset.Explosion,
-		    p: exports.Preset.Powerup,
-		    h: exports.Preset.Hit,
-		    j: exports.Preset.Jump,
-		    s: exports.Preset.Select,
-		    u: exports.Preset.Lucky,
-		};
-		var playprefixeArray = values(playPrefixes);
-		function play(name, mult, params) {
-		    if (name === void 0) { name = '0'; }
-		    if (mult === void 0) { mult = 2; }
-		    if (params === void 0) { params = null; }
-		    if (live == null) {
-		        return;
-		    }
-		    if (buffers[name] != null) {
-		        buffers[name].play();
-		        return;
-		    }
-		    random.setSeed(seed + getHashFromString(name));
-		    if (params == null) {
-		        var p = playPrefixes[name[0]];
-		        if (typeof p === 'undefined') {
-		            p = random.sample(playprefixeArray);
-		        }
-		        params = nArray(mult, p);
-		    }
-		    buffers[name] = new Sound(params);
-		    buffers[name].play();
-		}
-		exports.play = play;
-		function setVolume(volume) {
-		    if (live == null) {
-		        return;
-		    }
-		    live._volume.gain.value = volume;
-		}
-		exports.setVolume = setVolume;
-		var quantize = 0.5;
-		function setQuantize(_quantize) {
-		    quantize = _quantize;
-		}
-		exports.setQuantize = setQuantize;
-		function playBgm(name, interval, params, tracksNum) {
-		    if (name === void 0) { name = '0'; }
-		    if (interval === void 0) { interval = 0.25; }
-		    if (params === void 0) { params = [exports.Preset.Laser, exports.Preset.Hit]; }
-		    if (tracksNum === void 0) { tracksNum = 8; }
-		    if (live == null) {
-		        return;
-		    }
-		    stopBgm();
-		    random.setSeed(seed + getHashFromString(name));
-		    tracks = [];
-		    times(tracksNum, function () { return addRandomTrack(interval, params); });
-		    forEach(tracks, function (t) { return t.play(); });
-		}
-		exports.playBgm = playBgm;
-		function stopBgm() {
-		    if (live == null) {
-		        return;
-		    }
-		    forEach(tracks, function (t) { return t.stop(); });
-		}
-		exports.stopBgm = stopBgm;
-		function update() {
-		    if (live == null) {
-		        return;
-		    }
-		    var currentTime = live._context.currentTime;
-		    var schedulingTime = currentTime + schedulingInterval;
-		    forOwn(buffers, function (b) { return b.update(currentTime, schedulingTime); });
-		    forEach(tracks, function (t) { return t.update(currentTime, schedulingTime); });
-		    return currentTime;
-		}
-		exports.update = update;
-		function reset() {
-		    stopBgm();
-		    buffers = {};
-		    tracks = [];
-		}
-		exports.reset = reset;
-		var isEmptyPlayed = false;
-		function playEmpty() {
-		    if (live == null) {
-		        return;
-		    }
-		    if (isEmptyPlayed) {
-		        return;
-		    }
-		    var eb = live._createEmptyBuffer();
-		    live._playBuffer(eb, 0);
-		    isEmptyPlayed = true;
-		}
-		exports.playEmpty = playEmpty;
-		function playParam(param) {
-		    if (live == null) {
-		        return;
-		    }
-		    live._play(param);
-		}
-		exports.playParam = playParam;
-		function addRandomTrack(interval, params) {
-		    addTrack(random.sample(params), createRandomPattern(), interval);
-		}
-		function createRandomPattern() {
-		    var len = 64;
-		    var pattern = nArray(len, false);
-		    var pi = 4;
-		    while (pi <= len) {
-		        pattern = reversePattern(pattern, pi);
-		        pi *= 2;
-		    }
-		    return pattern;
-		}
-		function reversePattern(pattern, interval) {
-		    var pt = nArray(interval, false);
-		    var pr = 0.5;
-		    for (var i = 0; i < interval / 2; i++) {
-		        if (random.f() < pr) {
-		            pt[random.i(interval - 1)] = true;
-		        }
-		        pr *= 0.5;
-		    }
-		    return map(pattern, function (p, i) { return pt[i % interval] ? !p : p; });
-		}
-		function addTrack(param, pattern, interval) {
-		    if (interval === void 0) { interval = 0.25; }
-		    var track = new Track(param);
-		    track.patternInterval = interval;
-		    if (typeof pattern === 'string') {
-		        track.pattern = mapString(pattern, function (p) { return p === '1'; });
-		    }
-		    else {
-		        track.pattern = pattern;
-		    }
-		    tracks.push(track);
-		}
-		exports.addTrack = addTrack;
-		function getHashFromString(str) {
-		    var hash = 0;
-		    var len = str.length;
-		    for (var i = 0; i < len; i++) {
-		        var chr = str.charCodeAt(i);
-		        hash = ((hash << 5) - hash) + chr;
-		        hash |= 0;
-		    }
-		    return hash;
-		}
-		function values(obj) {
-		    var vs = [];
-		    for (var p in obj) {
-		        if (obj.hasOwnProperty(p)) {
-		            vs.push(obj[p]);
-		        }
-		    }
-		    return vs;
-		}
-		function nArray(n, v) {
-		    var a = [];
-		    for (var i = 0; i < n; i++) {
-		        a.push(v);
-		    }
-		    return a;
-		}
-		function times(n, func) {
-		    for (var i = 0; i < n; i++) {
-		        func();
-		    }
-		}
-		function forEach(array, func) {
-		    for (var i = 0; i < array.length; i++) {
-		        func(array[i]);
-		    }
-		}
-		function forOwn(obj, func) {
-		    for (var p in obj) {
-		        func(obj[p]);
-		    }
-		}
-		function map(array, func) {
-		    var result = [];
-		    for (var i = 0; i < array.length; i++) {
-		        result.push(func(array[i], i));
-		    }
-		    return result;
-		}
-		function mapString(str, func) {
-		    var result = [];
-		    for (var i = 0; i < str.length; i++) {
-		        result.push(func(str.charAt(i), i));
-		    }
-		    return result;
-		}
-		var Sound = (function () {
-		    function Sound(params) {
-		        this.isPlaying = false;
-		        this.playedTime = null;
-		        if (!Array.isArray(params)) {
-		            params = [params];
-		        }
-		        this.buffers = map(params, function (p) { return live._createBuffer(p); });
-		    }
-		    Sound.prototype.play = function () {
-		        this.isPlaying = true;
-		    };
-		    Sound.prototype.stop = function () {
-		        this.isPlaying = false;
-		    };
-		    Sound.prototype.update = function (currentTime, schedulingTime) {
-		        if (!this.isPlaying) {
-		            return;
-		        }
-		        this.isPlaying = false;
-		        var interval = exports.playInterval * quantize;
-		        var time = interval > 0 ?
-		            Math.ceil(currentTime / interval) * interval : currentTime;
-		        if (this.playedTime == null || time > this.playedTime) {
-		            this.playLater(time);
-		            this.playedTime = time;
-		        }
-		        return;
-		    };
-		    Sound.prototype.playLater = function (when) {
-		        forEach(this.buffers, function (b) { return live._playBuffer(b, when); });
-		    };
-		    return Sound;
-		}());
-		var Track = (function (_super) {
-		    __extends(Track, _super);
-		    function Track() {
-		        _super.apply(this, arguments);
-		        this.patternIndex = 0;
-		        this.patternInterval = 0.25;
-		        this.scheduledTime = null;
-		    }
-		    Track.prototype.update = function (currentTime, schedulingTime) {
-		        if (!this.isPlaying) {
-		            return;
-		        }
-		        if (this.scheduledTime == null) {
-		            this.scheduledTime = Math.ceil(currentTime / exports.playInterval) * exports.playInterval -
-		                exports.playInterval * this.patternInterval;
-		            this.patternIndex = 0;
-		            this.calcNextScheduledTime();
-		        }
-		        for (var i = 0; i < 99; i++) {
-		            if (this.scheduledTime >= currentTime) {
-		                break;
-		            }
-		            this.calcNextScheduledTime();
-		        }
-		        while (this.scheduledTime <= schedulingTime) {
-		            this.playLater(this.scheduledTime);
-		            this.calcNextScheduledTime();
-		        }
-		    };
-		    Track.prototype.calcNextScheduledTime = function () {
-		        var pl = this.pattern.length;
-		        var pi = exports.playInterval * this.patternInterval;
-		        for (var i = 0; i < pl; i++) {
-		            this.scheduledTime += pi;
-		            var p = this.pattern[this.patternIndex];
-		            this.patternIndex++;
-		            if (this.patternIndex >= pl) {
-		                this.patternIndex = 0;
-		            }
-		            if (p) {
-		                break;
-		            }
-		        }
-		    };
-		    return Track;
-		}(Sound));
-		var Random = (function () {
-		    function Random() {
-		        this.setSeed();
-		        this.get01 = this.get01.bind(this);
-		        this.f = this.f.bind(this);
-		        this.i = this.i.bind(this);
-		    }
-		    Random.prototype.setSeed = function (v) {
-		        if (v === void 0) { v = -0x7fffffff; }
-		        if (v === -0x7fffffff) {
-		            v = Math.floor(Math.random() * 0x7fffffff);
-		        }
-		        this.x = v = 1812433253 * (v ^ (v >> 30));
-		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
-		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
-		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
-		        return this;
-		    };
-		    Random.prototype.f = function (minOrMax, max) {
-		        if (minOrMax === void 0) { minOrMax = null; }
-		        if (max === void 0) { max = null; }
-		        if (minOrMax == null) {
-		            return this.get01();
-		        }
-		        if (max == null) {
-		            return this.get01() * minOrMax;
-		        }
-		        return this.get01() * (max - minOrMax) + minOrMax;
-		    };
-		    Random.prototype.i = function (minOrMax, max) {
-		        if (minOrMax === void 0) { minOrMax = null; }
-		        if (max === void 0) { max = null; }
-		        return Math.floor(this.f(minOrMax, max + 1));
-		    };
-		    Random.prototype.sample = function (array) {
-		        return array[this.i(array.length - 1)];
-		    };
-		    Random.prototype.getInt = function () {
-		        var t = this.x ^ (this.x << 11);
-		        this.x = this.y;
-		        this.y = this.z;
-		        this.z = this.w;
-		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
-		        return this.w;
-		    };
-		    Random.prototype.get01 = function () {
-		        return this.getInt() / 0x7fffffff;
-		    };
-		    return Random;
-		}());
-	
-	
-	/***/ },
-	/* 4 */
-	/***/ function(module, exports) {
-	
-		// original ver.: https://github.com/loov/jsfx
-		// these functions/variables are added by @abagames
-		//  - module.exports
-		//  - Live._createBuffer
-		//  - Live._createEmptyBuffer
-		//  - Live._playBuffer
-		//  - setRandomFunc
-		//  - webkitAudioContext
-		var jsfx = {};
-		(function(jsfx){
-			'use strict';
-	
-			var chr = String.fromCharCode;
-			var TAU = +Math.PI*2;
-			var bitsPerSample = 16|0;
-			var numChannels = 1|0;
-			var sin = Math.sin;
-			var pow = Math.pow;
-			var abs = Math.abs;
-			var EPSILON = 0.000001;
-	
-			jsfx.SampleRate = 0|0;
-			jsfx.Sec = 0|0;
-	
-			jsfx.SetSampleRate = function(sampleRate){
-				jsfx.SampleRate = sampleRate|0;
-				jsfx.Sec = sampleRate|0;
-			};
-			jsfx.SetSampleRate(getDefaultSampleRate());
-	
-			// MAIN API
-	
-			// Creates a new Audio object based on the params
-			// params can be a params generating function or the actual parameters
-			jsfx.Sound = function(params){
-				var processor = new Processor(params, jsfx.DefaultModules);
-				var block = createFloatArray(processor.getSamplesLeft());
-				processor.generate(block);
-				return CreateAudio(block);
-			};
-	
-			// Same as Sounds, but avoids locking the browser for too long
-			// in case you have a large amount of sounds to generate
-			jsfx.Sounds = function(library, ondone, onprogress){
-				var audio  = {};
-				var player = {};
-				player._audio = audio;
-	
-				var toLoad = [];
-	
-				// create playing functions
-				map_object(library, function(_, name){
-					player[name] = function(){
-						if(typeof audio[name] !== "undefined"){
-							audio[name].currentTime = 0.0;
-							audio[name].play();
-						}
-					};
-					toLoad.push(name);
-				});
-	
-				var loaded = 0, total = toLoad.length;
-				function next(){
-					if(toLoad.length == 0){
-						ondone && ondone(sounds);
-						return;
-					}
-					var name = toLoad.shift();
-					audio[name] = jsfx.Sound(library[name]);
-					loaded++;
-					onprogress && onprogress(name, loaded, total);
-	
-					window.setTimeout(next, 30);
-				}
-				next();
-	
-				return player;
-			}
-	
-			// SoundsImmediate takes a named set of params, and generates multiple
-			// sound objects at once.
-			jsfx.SoundsImmediate = function(library){
-				var audio = {};
-				var player = {};
-				player._audio = audio;
-				map_object(library, function(params, name){
-					audio[name] = jsfx.Sound(params);
-					player[name] = function(){
-						if(typeof audio[name] !== "undefined"){
-							audio[name].currentTime = 0.0;
-							audio[name].play();
-						}
-					};
-				})
-				return player;
-			};
-	
-		  var AudioContext = window.AudioContext || window.webkitAudioContext;
-			if(typeof AudioContext !== "undefined"){
-				// Node creates a new AudioContext ScriptProcessor that outputs the
-				// sound. It will automatically disconnect, unless otherwise specified.
-				jsfx.Node = function(audioContext, params, modules, bufferSize, stayConnected){
-					var node = audioContext.createScriptProcessor(bufferSize, 0, 1);
-					var gen = new Processor(params, modules || jsfx.DefaultModules);
-					node.onaudioprocess = function(ev){
-						var block = ev.outputBuffer.getChannelData(0);
-						gen.generate(block);
-						if(!stayConnected && gen.finished){
-							// we need to do an async disconnect, otherwise Chrome may
-							// glitch
-							setTimeout(function(){ node.disconnect(); }, 30);
-						}
-					}
-					return node;
-				}
-	
-				// Live creates an managed AudioContext for playing.
-				// This is useful, when you want to use procedurally generated sounds.
-				jsfx.Live = function(library, modules, BufferSize){
-					//TODO: add limit for number of notes played at the same time
-					BufferSize = BufferSize || 2048;
-					var player = {};
-	
-					var context = new AudioContext();
-					var volume = context.createGain();
-					volume.connect(context.destination);
-	
-					player._context = context;
-					player._volume = volume;
-	
-					map_object(library, function(params, name){
-						player[name] =  function(){
-							var node = jsfx.Node(context, params, modules, BufferSize);
-							node.connect(volume);
-						};
-					});
-	
-					player._close = function(){
-						context.close();
-					};
-	
-					player._play = function(params){
-						var node = jsfx.Node(context, params, modules, BufferSize);
-						node.connect(volume);
-					};
-		      
-		      player._createBuffer = function(params) {
-		        var processor = new Processor(params, jsfx.DefaultModules);
-		        var block = createFloatArray(processor.getSamplesLeft());
-		        processor.generate(block);
-						return player._createBufferFromBlock(block);
-		      }
-		      
-		      player._createEmptyBuffer = function() {
-						return player._createBufferFromBlock([0]);
-		      }
-		      
-		      player._createBufferFromBlock = function(block) {
-		        var buffer = context.createBuffer(1, block.length, jsfx.SampleRate);
-		        var channelData = buffer.getChannelData(0);
-		        channelData.set(block);
-		        return buffer;
-		      }
-		      
-		      player._playBuffer = function(buffer, when) {
-		        var bufSrc = context.createBufferSource();
-		        bufSrc.buffer = buffer;
-		        bufSrc.start = bufSrc.start || bufSrc.noteOn;
-		        bufSrc.start(when);
-		        bufSrc.onended = function() {
-		          bufSrc.disconnect();
-		        };
-						bufSrc.connect(volume);
-		      }
-	
-					return player;
-				}
-			} else {
-				//jsfx.Live = jsfx.Sounds;
-				jsfx.Live = function(library, modules, BufferSize){
-					return null;
-				};
-			}
-	
-			// SOUND GENERATION
-			jsfx.Module = {};
-	
-			// generators
-			jsfx.G = {};
-	
-			var stage = jsfx.stage = {
-				PhaseSpeed    : 0,
-				PhaseSpeedMod : 10,
-				Generator     : 20,
-				SampleMod     : 30,
-				Volume        : 40
-			};
-			function byStage(a,b){ return a.stage - b.stage; }
-	
-			jsfx.InitDefaultParams = InitDefaultParams;
-			function InitDefaultParams(params, modules){
-				// setup modules
-				for(var i = 0; i < modules.length; i += 1){
-					var M = modules[i];
-					var P = params[M.name] || {};
-	
-					// add missing parameters
-					map_object(M.params, function(def, name){
-						if(typeof P[name] === 'undefined'){
-							P[name] = def.D;
-						}
-					});
-	
-					params[M.name] = P;
-				}
-			}
-	
-			// Generates a stateful sound effect processor
-			// params can be a function that creates a parameter set
-			jsfx.Processor = Processor;
-			function Processor(params, modules){
-				params = params || {};
-				modules = modules || jsfx.DefaultModules;
-	
-				if(typeof params === 'function'){
-					params = params();
-				} else {
-					params = JSON.parse(JSON.stringify(params))
-				}
-				this.finished = false;
-	
-				this.state = {
-					SampleRate: params.SampleRate || jsfx.SampleRate
-				};
-	
-				// sort modules
-				modules = modules.slice();
-				modules.sort(byStage)
-				this.modules = modules;
-	
-				// init missing params
-				InitDefaultParams(params, modules);
-	
-				// setup modules
-				for(var i = 0; i < this.modules.length; i += 1){
-					var M = this.modules[i];
-					this.modules[i].setup(this.state, params[M.name]);
-				}
-			}
-			Processor.prototype = {
-				//TODO: see whether this can be converted to a module
-				generate: function(block){
-					for(var i = 0|0; i < block.length; i += 1){
-						block[i] = 0;
-					}
-					if(this.finished){ return; }
-	
-					var $ = this.state,
-						N = block.length|0;
-					for(var i = 0; i < this.modules.length; i += 1){
-						var M = this.modules[i];
-						var n = M.process($, block.subarray(0,N))|0;
-						N = Math.min(N, n);
-					}
-					if(N < block.length){
-						this.finished = true;
-					}
-					for(var i = N; i < block.length; i++){
-						block[i] = 0;
-					}
-				},
-				getSamplesLeft: function(){
-					var samples = 0;
-					for(var i = 0; i < this.state.envelopes.length; i += 1){
-						samples += this.state.envelopes[i].N;
-					}
-					if(samples === 0){
-						samples = 3*this.state.SampleRate;
-					}
-					return samples;
-				}
-			};
-	
-			// Frequency
-			jsfx.Module.Frequency = {
-				name: 'Frequency',
-				params: {
-					Start: { L:30, H:1800, D:440  },
-	
-					Min: { L:30, H:1800, D:30    },
-					Max: { L:30, H:1800, D:1800  },
-	
-					Slide:      { L:-1, H:1, D:0 },
-					DeltaSlide: { L:-1, H:1, D:0 },
-	
-					RepeatSpeed:  { L:0, H: 3.0, D: 0 },
-	
-					ChangeAmount: { L:-12, H:12, D:0 },
-					ChangeSpeed : { L:  0, H:1,  D:0 }
-				},
-				stage: stage.PhaseSpeed,
-				setup: function($, P){
-					var SR = $.SampleRate;
-	
-					$.phaseParams = P;
-	
-					$.phaseSpeed    = P.Start * TAU / SR;
-					$.phaseSpeedMax = P.Max * TAU / SR;
-					$.phaseSpeedMin = P.Min * TAU / SR;
-	
-					$.phaseSpeedMin = Math.min($.phaseSpeedMin, $.phaseSpeed);
-					$.phaseSpeedMax = Math.max($.phaseSpeedMax, $.phaseSpeed);
-	
-					$.phaseSlide = 1.0 + pow(P.Slide, 3.0) * 64.0 / SR;
-					$.phaseDeltaSlide = pow(P.DeltaSlide, 3.0) / (SR * 1000);
-	
-					$.repeatTime = 0;
-					$.repeatLimit = Infinity;
-					if(P.RepeatSpeed > 0){
-						$.repeatLimit = P.RepeatSpeed * SR;
-					}
-	
-					$.arpeggiatorTime = 0;
-					$.arpeggiatorLimit = P.ChangeSpeed * SR;
-					if(P.ChangeAmount == 0){
-						$.arpeggiatorLimit = Infinity;
-					}
-					$.arpeggiatorMod = 1 + P.ChangeAmount / 12.0;
-				},
-				process: function($, block){
-					var speed = +$.phaseSpeed,
-						min   = +$.phaseSpeedMin,
-						max   = +$.phaseSpeedMax,
-						slide = +$.phaseSlide,
-						deltaSlide = +$.phaseDeltaSlide;
-	
-					var repeatTime  = $.repeatTime,
-						repeatLimit = $.repeatLimit;
-	
-					var arpTime  = $.arpeggiatorTime,
-						arpLimit = $.arpeggiatorLimit,
-						arpMod   = $.arpeggiatorMod;
-	
-					for(var i = 0; i < block.length; i++){
-						slide += deltaSlide;
-						speed *= slide;
-						speed = speed < min ? min : speed > max ? max : speed;
-	
-						if(repeatTime > repeatLimit){
-							this.setup($, $.phaseParams);
-							return i + this.process($, block.subarray(i)) - 1;
-						}
-						repeatTime++;
-	
-						if(arpTime > arpLimit){
-							speed *= arpMod;
-							arpTime = 0;
-							arpLimit = Infinity;
-						}
-						arpTime++;
-	
-						block[i] += speed;
-					}
-	
-					$.repeatTime = repeatTime;
-					$.arpeggiatorTime = arpTime;
-					$.arpeggiatorLimit = arpLimit;
-	
-					$.phaseSpeed = speed;
-					$.phaseSlide = slide;
-	
-					return block.length;
-				}
-			};
-	
-			// Vibrato
-			jsfx.Module.Vibrato = {
-				name: 'Vibrato',
-				params: {
-					Depth:      {L: 0, H:1, D:0},
-					DepthSlide: {L:-1, H:1, D:0},
-	
-					Frequency:      {L:  0.01, H:48, D:0},
-					FrequencySlide: {L: -1.00, H: 1, D:0}
-				},
-				stage: stage.PhaseSpeedMod,
-				setup: function($, P){
-					var SR = $.SampleRate;
-					$.vibratoPhase = 0;
-					$.vibratoDepth = P.Depth;
-					$.vibratoPhaseSpeed = P.Frequency * TAU / SR;
-	
-					$.vibratoPhaseSpeedSlide = 1.0 + pow(P.FrequencySlide, 3.0) * 3.0 / SR;
-					$.vibratoDepthSlide = P.DepthSlide / SR;
-				},
-				process: function($, block){
-					var phase = +$.vibratoPhase,
-						depth = +$.vibratoDepth,
-						speed = +$.vibratoPhaseSpeed,
-						slide = +$.vibratoPhaseSpeedSlide,
-						depthSlide = +$.vibratoDepthSlide;
-	
-					if((depth == 0) && (depthSlide <= 0)){
-						return block.length;
-					}
-	
-					for(var i = 0; i < block.length; i++){
-						phase += speed;
-						if(phase > TAU){phase -= TAU};
-						block[i] += block[i] * sin(phase) * depth;
-	
-						speed *= slide;
-						depth += depthSlide;
-						depth = clamp1(depth);
-					}
-	
-					$.vibratoPhase = phase;
-					$.vibratoDepth = depth;
-					$.vibratoPhaseSpeed = speed;
-					return block.length;
-				}
-			};
-	
-			// Generator
-			jsfx.Module.Generator = {
-				name: 'Generator',
-				params: {
-					// C = choose
-					Func: {C: jsfx.G, D:'square'},
-	
-					A: {L: 0, H: 1, D: 0},
-					B: {L: 0, H: 1, D: 0},
-	
-					ASlide: {L: -1, H: 1, D: 0},
-					BSlide: {L: -1, H: 1, D: 0}
-				},
-				stage: stage.Generator,
-				setup: function($, P){
-					$.generatorPhase = 0;
-	
-					if(typeof P.Func === 'string'){
-						$.generator = jsfx.G[P.Func];
-					} else {
-						$.generator = P.Func;
-					}
-					if(typeof $.generator === 'object'){
-						$.generator = $.generator.create();
-					}
-					assert(typeof $.generator === 'function', 'generator must be a function')
-	
-					$.generatorA = P.A;
-					$.generatorASlide = P.ASlide;
-					$.generatorB = P.B;
-					$.generatorBSlide = P.BSlide;
-				},
-				process: function($, block){
-					return $.generator($, block);
-				}
-			};
-	
-			// Karplus Strong algorithm for string sound
-			var GuitarBufferSize = 1 << 16;
-			jsfx.Module.Guitar = {
-				name: 'Guitar',
-				params: {
-					A: {L:0.0, H:1.0, D: 1},
-					B: {L:0.0, H:1.0, D: 1},
-					C: {L:0.0, H:1.0, D: 1},
-				},
-				stage: stage.Generator,
-				setup: function($, P){
-					$.guitarA = P.A;
-					$.guitarB = P.B;
-					$.guitarC = P.C;
-	
-					$.guitarBuffer = createFloatArray(GuitarBufferSize);
-					$.guitarHead = 0;
-					var B = $.guitarBuffer;
-					for(var i = 0; i < B.length; i++){
-						B[i] = random()*2 - 1;
-					}
-				},
-				process: function($, block){
-					var BS = GuitarBufferSize,
-						BM = BS - 1;
-	
-					var A = +$.guitarA, B = +$.guitarB, C = +$.guitarC;
-					var T = A + B + C;
-					var h = $.guitarHead;
-	
-					var buffer = $.guitarBuffer;
-					for(var i = 0; i < block.length; i++){
-						// buffer size
-						var n = (TAU / block[i])|0;
-						n = n > BS ? BS : n;
-	
-						// tail
-						var t = ((h - n) + BS) & BM;
-						buffer[h] =
-							(buffer[(t-0+BS)&BM]*A +
-							 buffer[(t-1+BS)&BM]*B +
-							 buffer[(t-2+BS)&BM]*C) / T;
-	
-						block[i] = buffer[h];
-						h = (h + 1) & BM;
-					}
-	
-					$.guitarHead = h;
-					return block.length;
-				}
-			}
-	
-			// Low/High-Pass Filter
-			jsfx.Module.Filter = {
-				name: 'Filter',
-				params: {
-					LP:          {L: 0, H:1, D:1},
-					LPSlide:     {L:-1, H:1, D:0},
-					LPResonance: {L: 0, H:1, D:0},
-					HP:          {L: 0, H:1, D:0},
-					HPSlide:     {L:-1, H:1, D:0}
-				},
-				stage: stage.SampleMod + 0,
-				setup: function($, P){
-					$.FilterEnabled = (P.HP > EPSILON) || (P.LP < 1 - EPSILON);
-	
-					$.LPEnabled = P.LP < 1 - EPSILON;
-					$.LP = pow(P.LP, 3.0) / 10;
-					$.LPSlide = 1.0 + P.LPSlide * 100 / $.SampleRate;
-					$.LPPos = 0;
-					$.LPPosSlide = 0;
-	
-					$.LPDamping = 5.0 / (1.0 + pow(P.LPResonance, 2) * 20) * (0.01 + P.LP);
-					$.LPDamping = 1.0 - Math.min($.LPDamping, 0.8);
-	
-					$.HP = pow(P.HP, 2.0) / 10;
-					$.HPPos = 0;
-					$.HPSlide = 1.0 + P.HPSlide * 100 / $.SampleRate;
-				},
-				enabled: function($){
-					return $.FilterEnabled;
-				},
-				process: function($, block){
-					if(!this.enabled($)){ return block.length; }
-	
-					var lp         = +$.LP;
-					var lpPos      = +$.LPPos;
-					var lpPosSlide = +$.LPPosSlide;
-					var lpSlide    = +$.LPSlide;
-					var lpDamping  = +$.LPDamping;
-					var lpEnabled  = +$.LPEnabled;
-	
-					var hp      = +$.HP;
-					var hpPos   = +$.HPPos;
-					var hpSlide = +$.HPSlide;
-	
-					for(var i = 0; i < block.length; i++){
-						if((hp > EPSILON) || (hp < -EPSILON)){
-							hp *= hpSlide;
-							hp = hp < EPSILON ? EPSILON: hp > 0.1 ? 0.1 : hp;
-						}
-	
-						var lpPos_ = lpPos;
-	
-						lp *= lpSlide;
-						lp = lp < 0 ? lp = 0 : lp > 0.1 ? 0.1 : lp;
-	
-						var sample = block[i];
-						if(lpEnabled){
-							lpPosSlide += (sample - lpPos) * lp;
-							lpPosSlide *= lpDamping;
-						} else {
-							lpPos = sample;
-							lpPosSlide = 0;
-						}
-						lpPos += lpPosSlide;
-	
-						hpPos += lpPos - lpPos_;
-						hpPos *= 1.0 - hp;
-	
-						block[i] = hpPos;
-					}
-	
-					$.LPPos = lpPos;
-					$.LPPosSlide = lpPosSlide;
-					$.LP = lp;
-					$.HP = hp;
-					$.HPPos = hpPos;
-	
-					return block.length;
-				}
-			};
-	
-			// Phaser Effect
-			var PhaserBufferSize = 1 << 10;
-			jsfx.Module.Phaser = {
-				name: 'Phaser',
-				params: {
-					Offset: {L:-1, H:1, D:0},
-					Sweep:  {L:-1, H:1, D:0}
-				},
-				stage: stage.SampleMod + 1,
-				setup: function($, P){
-					$.phaserBuffer = createFloatArray(PhaserBufferSize);
-					$.phaserPos  = 0;
-					$.phaserOffset = pow(P.Offset, 2.0) * (PhaserBufferSize - 4);
-					$.phaserOffsetSlide = pow(P.Sweep, 3.0) * 4000 / $.SampleRate;
-				},
-				enabled: function($){
-					return (abs($.phaserOffsetSlide) > EPSILON) ||
-						(abs($.phaserOffset) > EPSILON);
-				},
-				process: function($, block){
-					if(!this.enabled($)){ return block.length; }
-	
-					var BS = PhaserBufferSize,
-						BM = BS - 1;
-	
-					var buffer = $.phaserBuffer,
-						pos    = $.phaserPos|0,
-						offset = +$.phaserOffset,
-						offsetSlide = +$.phaserOffsetSlide;
-	
-					for(var i = 0; i < block.length; i++){
-						offset += offsetSlide;
-						//TODO: check whether this is correct
-						if(offset < 0){
-							offset = -offset;
-							offsetSlide = -offsetSlide;
-						}
-						if(offset > BM){
-							offset = BM;
-							offsetSlide = 0;
-						}
-	
-						buffer[pos] = block[i];
-						var p = (pos - (offset|0) + BS) & BM;
-						block[i] += buffer[p];
-	
-						pos = ((pos + 1) & BM)|0;
-					}
-	
-					$.phaserPos = pos;
-					$.phaserOffset = offset;
-					return block.length;
-				}
-			};
-	
-			// Volume dynamic control with Attack-Sustain-Decay
-			//   ATTACK  | 0              - Volume + Punch
-			//   SUSTAIN | Volume + Punch - Volume
-			//   DECAY   | Volume         - 0
-			jsfx.Module.Volume = {
-				name: 'Volume',
-				params: {
-					Master:  { L: 0, H: 1, D: 0.5 },
-					Attack:  { L: 0.001, H: 1, D: 0.01 },
-					Sustain: { L: 0, H: 2, D: 0.3 },
-					Punch:   { L: 0, H: 3, D: 1.0 },
-					Decay:   { L: 0.001, H: 2, D: 1.0 }
-				},
-				stage: stage.Volume,
-				setup: function($, P){
-					var SR = $.SampleRate;
-					var V = P.Master;
-					var VP = V * (1 + P.Punch);
-					$.envelopes = [
-						// S = start volume, E = end volume, N = duration in samples
-						{S: 0, E: V, N: (P.Attack  * SR)|0 }, // Attack
-						{S:VP, E: V, N: (P.Sustain * SR)|0 }, // Sustain
-						{S: V, E: 0, N: (P.Decay   * SR)|0 }  // Decay
-					];
-					// G = volume gradient
-					for(var i = 0; i < $.envelopes.length; i += 1){
-						var e = $.envelopes[i];
-						e.G = (e.E - e.S) / e.N;
-					}
-				},
-				process: function($, block){
-					var i = 0;
-					while(($.envelopes.length > 0) && (i < block.length)){
-						var E = $.envelopes[0];
-						var vol = E.S,
-							grad = E.G;
-	
-						var N = Math.min(block.length - i, E.N)|0;
-						var end = (i+N)|0;
-						for(; i < end; i += 1){
-							block[i] *= vol;
-							vol += grad;
-							vol = clamp(vol, 0, 10);
-						}
-						E.S = vol;
-						E.N -= N;
-						if(E.N <= 0){
-							$.envelopes.shift();
-						}
-					}
-					return i;
-				}
-			};
-	
-			// PRESETS
-	
-			jsfx.DefaultModules = [
-				jsfx.Module.Frequency,
-				jsfx.Module.Vibrato,
-				jsfx.Module.Generator,
-				jsfx.Module.Filter,
-				jsfx.Module.Phaser,
-				jsfx.Module.Volume
-			];
-			jsfx.DefaultModules.sort(byStage);
-	
-			jsfx.EmptyParams = EmptyParams;
-			function EmptyParams(){
-				return map_object(jsfx.Module, function(){ return {} });
-			}
-	
-			jsfx._RemoveEmptyParams = RemoveEmptyParams;
-			function RemoveEmptyParams(params){
-				for(var name in params){
-					if(Object_keys(params[name]).length == 0){
-						delete params[name];
-					}
-				}
-			};
-	
-			jsfx.Preset = {
-				Reset: function(){
-					return EmptyParams();
-				},
-				Coin: function(){
-					var p = EmptyParams();
-					p.Frequency.Start = runif(880, 660);
-					p.Volume.Sustain = runif(0.1);
-					p.Volume.Decay = runif(0.4, 0.1);
-					p.Volume.Punch = runif(0.3, 0.3);
-					if(runif() < 0.5){
-						p.Frequency.ChangeSpeed = runif(0.15, 0.1);
-						p.Frequency.ChangeAmount = runif(8, 4);
-					}
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Laser: function(){
-					var p = EmptyParams();
-					p.Generator.Func = rchoose(['square', 'saw', 'sine']);
-	
-					if(runif() < 0.33){
-						p.Frequency.Start = runif(880, 440);
-						p.Frequency.Min = runif(0.1);
-						p.Frequency.Slide = runif(0.3, -0.8);
-					} else {
-						p.Frequency.Start = runif(1200, 440);
-						p.Frequency.Min = p.Frequency.Start - runif(880, 440);
-						if(p.Frequency.Min < 110){ p.Frequency.Min = 110; }
-						p.Frequency.Slide = runif(0.3, -1);
-					}
-	
-					if(runif() < 0.5){
-						p.Generator.A = runif(0.5);
-						p.Generator.ASlide = runif(0.2);
-					} else {
-						p.Generator.A = runif(0.5, 0.4);
-						p.Generator.ASlide = runif(0.7);
-					}
-	
-					p.Volume.Sustain = runif(0.2, 0.1);
-					p.Volume.Decay   = runif(0.4);
-					if(runif() < 0.5){
-						p.Volume.Punch = runif(0.3);
-					}
-					if(runif() < 0.33){
-						p.Phaser.Offset = runif(0.2);
-						p.Phaser.Sweep = runif(0.2);
-					}
-					if(runif() < 0.5){
-						p.Filter.HP = runif(0.3);
-					}
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Explosion: function(){
-					var p = EmptyParams();
-					p.Generator.Func = 'noise';
-					if(runif() < 0.5){
-						p.Frequency.Start = runif(440, 40);
-						p.Frequency.Slide = runif(0.4, -0.1);
-					} else {
-						p.Frequency.Start = runif(1600, 220);
-						p.Frequency.Slide = runif(-0.2, -0.2);
-					}
-	
-					if(runif() < 0.2){ p.Frequency.Slide = 0; }
-					if(runif() < 0.3){ p.Frequency.RepeatSpeed = runif(0.5, 0.3); }
-	
-					p.Volume.Sustain = runif(0.3, 0.1);
-					p.Volume.Decay   = runif(0.5);
-					p.Volume.Punch   = runif(0.6, 0.2);
-	
-					if(runif() < 0.5){
-						p.Phaser.Offset = runif(0.9, -0.3);
-						p.Phaser.Sweep  = runif(-0.3);
-					}
-	
-					if(runif() < 0.33){
-						p.Frequency.ChangeSpeed = runif(0.3, 0.6);
-						p.Frequency.ChangeAmount = runif(24, -12);
-					}
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Powerup: function(){
-					var p = EmptyParams();
-					if(runif() < 0.5){
-						p.Generator.Func = 'saw';
-					} else {
-						p.Generator.A = runif(0.6);
-					}
-	
-					p.Frequency.Start = runif(220, 440);
-					if(runif() < 0.5){
-						p.Frequency.Slide = runif(0.5, 0.2);
-						p.Frequency.RepeatSpeed = runif(0.4, 0.4);
-					} else {
-						p.Frequency.Slide = runif(0.2, 0.05);
-						if(runif() < 0.5){
-							p.Vibrato.Depth = runif(0.6, 0.1);
-							p.Vibrato.Frequency = runif(30, 10);
-						}
-					}
-	
-					p.Volume.Sustain = runif(0.4);
-					p.Volume.Decay = runif(0.4, 0.1);
-	
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Hit: function(){
-					var p = EmptyParams();
-					p.Generator.Func = rchoose(['square', 'saw', 'noise']);
-					p.Generator.A = runif(0.6);
-					p.Generator.ASlide = runif(1, -0.5);
-	
-					p.Frequency.Start = runif(880, 220);
-					p.Frequency.Slide = -runif(0.4, 0.3);
-	
-					p.Volume.Sustain = runif(0.1);
-					p.Volume.Decay = runif(0.2, 0.1);
-	
-					if(runif() < 0.5){
-						p.Filter.HP = runif(0.3);
-					}
-	
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Jump: function(){
-					var p = EmptyParams();
-					p.Generator.Func = 'square';
-					p.Generator.A = runif(0.6);
-	
-					p.Frequency.Start = runif(330, 330);
-					p.Frequency.Slide = runif(0.4, 0.2);
-	
-					p.Volume.Sustain = runif(0.3, 0.1);
-					p.Volume.Decay = runif(0.2, 0.1);
-	
-					if(runif() < 0.5){
-						p.Filter.HP = runif(0.3);
-					}
-					if(runif() < 0.3){
-						p.Filter.LP = runif(-0.6, 1);
-					}
-	
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Select: function(){
-					var p = EmptyParams();
-					p.Generator.Func = rchoose(['square', 'saw']);
-					p.Generator.A = runif(0.6);
-	
-					p.Frequency.Start = runif(660, 220);
-	
-					p.Volume.Sustain = runif(0.1, 0.1);
-					p.Volume.Decay   = runif(0.2);
-	
-					p.Filter.HP = 0.2;
-					RemoveEmptyParams(p);
-					return p;
-				},
-				Lucky: function(){
-					var p = EmptyParams();
-					map_object(p, function(out, moduleName){
-						var defs = jsfx.Module[moduleName].params;
-						map_object(defs, function(def, name){
-							if(def.C){
-								var values = Object_keys(def.C);
-								out[name] = values[(values.length * random()) | 0];
-							} else {
-								out[name] = random() * (def.H - def.L) + def.L;
-							}
-						});
-					});
-					p.Volume.Master = 0.4;
-					p.Filter = {}; // disable filter, as it usually will clip everything
-					RemoveEmptyParams(p);
-					return p;
-				}
-			};
-	
-			// GENERATORS
-	
-			// uniform noise
-			jsfx.G.unoise = newGenerator("sample = Math.random();");
-			// sine wave
-			jsfx.G.sine = newGenerator("sample = Math.sin(phase);");
-			// saw wave
-			jsfx.G.saw = newGenerator("sample = 2*(phase/TAU - ((phase/TAU + 0.5)|0));");
-			// triangle wave
-			jsfx.G.triangle = newGenerator("sample = Math.abs(4 * ((phase/TAU - 0.25)%1) - 2) - 1;");
-			// square wave
-			jsfx.G.square = newGenerator("var s = Math.sin(phase); sample = s > A ? 1.0 : s < A ? -1.0 : A;");
-			// simple synth
-			jsfx.G.synth = newGenerator("sample = Math.sin(phase) + .5*Math.sin(phase/2) + .3*Math.sin(phase/4);");
-	
-			// STATEFUL
-			var __noiseLast = 0;
-			jsfx.G.noise = newGenerator("if(phase % TAU < 4){__noiseLast = Math.random() * 2 - 1;} sample = __noiseLast;");
-	
-			// Karplus-Strong string
-			jsfx.G.string = {
-				create: function(){
-					var BS = 1 << 16;
-					var BM = BS-1;
-	
-					var buffer = createFloatArray(BS);
-					for(var i = 0; i < buffer.length; i++){
-						buffer[i] = random()*2-1;
-					}
-	
-					var head = 0;
-					return function($, block){
-						var TAU = Math.PI * 2;
-						var A = +$.generatorA, ASlide = +$.generatorASlide,
-							B = +$.generatorB, BSlide = +$.generatorBSlide;
-						var buf = buffer;
-	
-						for(var i = 0; i < block.length; i++){
-							var phaseSpeed = block[i];
-							var n = (TAU/phaseSpeed)|0;
-							A += ASlide; B += BSlide;
-							A = A < 0 ? 0 : A > 1 ? 1 : A;
-							B = B < 0 ? 0 : B > 1 ? 1 : B;
-	
-							var t = ((head - n) + BS) & BM;
-							var sample = (
-								buf[(t-0+BS)&BM]*1 +
-								buf[(t-1+BS)&BM]*A +
-								buf[(t-2+BS)&BM]*B) / (1+A+B);
-	
-							buf[head] = sample;
-							block[i] = buf[head];
-							head = (head + 1) & BM;
-						}
-	
-						$.generatorA = A;
-						$.generatorB = B;
-						return block.length;
-					}
-				}
-			};
-	
-			// Generates samples using given frequency and generator
-			function newGenerator(line){
-				return new Function("$", "block", "" +
-					"var TAU = Math.PI * 2;\n" +
-					"var sample;\n" +
-					"var phase = +$.generatorPhase,\n"+
-					"	A = +$.generatorA, ASlide = +$.generatorASlide,\n"+
-					"	B = +$.generatorB, BSlide = +$.generatorBSlide;\n"+
-					"\n"+
-					"for(var i = 0; i < block.length; i++){\n"+
-					"	var phaseSpeed = block[i];\n"+
-					"	phase += phaseSpeed;\n"+
-					"	if(phase > TAU){ phase -= TAU };\n"+
-					"	A += ASlide; B += BSlide;\n"+
-					"   A = A < 0 ? 0 : A > 1 ? 1 : A;\n"+
-					"   B = B < 0 ? 0 : B > 1 ? 1 : B;\n"+
-					line +
-					"	block[i] = sample;\n"+
-					"}\n"+
-					"\n"+
-					"$.generatorPhase = phase;\n"+
-					"$.generatorA = A;\n"+
-					"$.generatorB = B;\n"+
-					"return block.length;\n" +
-				"");
-			}
-	
-			// WAVE SUPPORT
-	
-			// Creates an Audio element from audio data [-1.0 .. 1.0]
-			jsfx.CreateAudio = CreateAudio;
-			function CreateAudio(data){
-				if(typeof Float32Array !== "undefined"){
-					assert(data instanceof Float32Array, 'data must be an Float32Array');
-				}
-	
-				var blockAlign = numChannels * bitsPerSample >> 3;
-				var byteRate = jsfx.SampleRate * blockAlign;
-	
-				var output = createByteArray(8 + 36 + data.length * 2);
-				var p = 0;
-	
-				// emits string to output
-				function S(value){
-					for(var i = 0; i < value.length; i += 1){
-						output[p] = value.charCodeAt(i); p++;
-					}
-				}
-	
-				// emits integer value to output
-				function V(value, nBytes){
-					if(nBytes <= 0){ return; }
-					output[p] = value & 0xFF; p++;
-					V(value >> 8, nBytes - 1);
-				}
-	
-				S('RIFF'); V(36 + data.length * 2, 4);
-	
-				S('WAVEfmt '); V(16, 4); V(1, 2);
-				V(numChannels, 2); V(jsfx.SampleRate, 4);
-				V(byteRate, 4); V(blockAlign, 2); V(bitsPerSample, 2);
-	
-				S('data'); V(data.length * 2, 4);
-				CopyFToU8(output.subarray(p), data);
-	
-				return new Audio('data:audio/wav;base64,' + U8ToB64(output));
-			};
-	
-			jsfx.DownloadAsFile = function(audio){
-				assert(audio instanceof Audio, 'input must be an Audio object');
-				document.location.href = audio.src;
-			};
-	
-			// HELPERS
-			jsfx.Util = {};
-	
-			// Copies array of Floats to a Uint8Array with 16bits per sample
-			jsfx.Util.CopyFToU8 = CopyFToU8;
-			function CopyFToU8(into, floats){
-				assert(into.length/2 == floats.length,
-					'the target buffer must be twice as large as the iinput');
-	
-				var k = 0;
-				for(var i = 0; i < floats.length; i++){
-					var v = +floats[i];
-					var	a = (v * 0x7FFF)|0;
-					a = a < -0x8000 ? -0x8000 : 0x7FFF < a ? 0x7FFF : a;
-					a += a < 0 ? 0x10000 : 0;
-					into[k] = a & 0xFF; k++;
-					into[k] = a >> 8; k++;
-				}
-			}
-	
-			function U8ToB64(data){
-				var CHUNK = 0x8000;
-				var result = '';
-				for(var start = 0; start < data.length; start += CHUNK){
-					var end = Math.min(start + CHUNK, data.length);
-					result += String.fromCharCode.apply(null, data.subarray(start, end));
-				}
-				return btoa(result);
-			}
-	
-			// uses AudioContext sampleRate or 44100;
-			function getDefaultSampleRate(){
-				if(typeof AudioContext !== 'undefined'){
-					return (new AudioContext()).sampleRate;
-				}
-				return 44100;
-			}
-	
-			// for checking pre/post conditions
-			function assert(condition, message){
-				if(!condition){ throw new Error(message); }
-			}
-	
-			function clamp(v, min, max){
-				v = +v; min = +min; max = +max;
-				if(v < min){ return +min; }
-				if(v > max){ return +max; }
-				return +v;
-			}
-	
-			function clamp1(v){
-				v = +v;
-				if(v < +0.0){ return +0.0; }
-				if(v > +1.0){ return +1.0; }
-				return +v;
-			}
-	
-			function map_object(obj, fn){
-				var r = {};
-				for(var name in obj){
-					if(obj.hasOwnProperty(name)){
-						r[name] = fn(obj[name], name);
-					}
-				}
-				return r;
-			}
-	
-			// uniform random
-			function runif(scale, offset){
-				var a = random();
-		        if(scale !== undefined)
-		            a *= scale;
-		        if(offset !== undefined)
-		            a += offset;
-		        return a;
-			}
-	
-			function rchoose(gens){
-				return gens[(gens.length*random())|0];
-			}
-	
-			function Object_keys(obj){
-				var r = [];
-				for(var name in obj){ r.push(name); }
-				return r;
-			}
-	
-			jsfx._createFloatArray = createFloatArray;
-			function createFloatArray(N){
-				if(typeof Float32Array === "undefined") {
-					var r = new Array(N);
-					for(var i = 0; i < r.length; i++){
-						r[i] = 0.0;
-					}
-				}
-				return new Float32Array(N);
-			}
-	
-			function createByteArray(N){
-				if(typeof Uint8Array === "undefined") {
-					var r = new Array(N);
-					for(var i = 0; i < r.length; i++){
-						r[i] = 0|0;
-					}
-				}
-				return new Uint8Array(N);
-			}
-			
-			var randomFunc = Math.random;
-			jsfx.setRandomFunc = function(func) {
-				randomFunc = func;
-			}
-			
-			function random() {
-				return randomFunc();
-			}
-		})(jsfx = {});
-		module.exports = jsfx;
-	
-	
-	/***/ }
-	/******/ ])
-	});
-	;
-
-/***/ },
-/* 6 */
-/***/ function(module, exports, __webpack_require__) {
-
-	(function webpackUniversalModuleDefinition(root, factory) {
-		if(true)
-			module.exports = factory();
-		else if(typeof define === 'function' && define.amd)
-			define([], factory);
-		else if(typeof exports === 'object')
-			exports["ir"] = factory();
-		else
-			root["ir"] = factory();
-	})(this, function() {
-	return /******/ (function(modules) { // webpackBootstrap
-	/******/ 	// The module cache
-	/******/ 	var installedModules = {};
-	
-	/******/ 	// The require function
-	/******/ 	function __webpack_require__(moduleId) {
-	
-	/******/ 		// Check if module is in cache
-	/******/ 		if(installedModules[moduleId])
-	/******/ 			return installedModules[moduleId].exports;
-	
-	/******/ 		// Create a new module (and put it into the cache)
-	/******/ 		var module = installedModules[moduleId] = {
-	/******/ 			exports: {},
-	/******/ 			id: moduleId,
-	/******/ 			loaded: false
-	/******/ 		};
-	
-	/******/ 		// Execute the module function
-	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-	
-	/******/ 		// Flag the module as loaded
-	/******/ 		module.loaded = true;
-	
-	/******/ 		// Return the exports of the module
-	/******/ 		return module.exports;
-	/******/ 	}
-	
-	
-	/******/ 	// expose the modules object (__webpack_modules__)
-	/******/ 	__webpack_require__.m = modules;
-	
-	/******/ 	// expose the module cache
-	/******/ 	__webpack_require__.c = installedModules;
-	
-	/******/ 	// __webpack_public_path__
-	/******/ 	__webpack_require__.p = "";
-	
-	/******/ 	// Load entry module and return exports
-	/******/ 	return __webpack_require__(0);
-	/******/ })
-	/************************************************************************/
-	/******/ ([
-	/* 0 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		module.exports = __webpack_require__(1);
-	
-	
-	/***/ },
-	/* 1 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		"use strict";
-		var LZString = __webpack_require__(2);
-		exports.options = {
-		    frameCount: 180
-		};
-		var statuses;
-		var events;
-		var recordingIndex;
-		var replayingIndex;
-		function startRecord() {
-		    initStatusesAndEvents();
-		    recordingIndex = replayingIndex = 0;
-		}
-		exports.startRecord = startRecord;
-		function initStatusesAndEvents() {
-		    statuses = [];
-		    events = [];
-		    for (var i = 0; i < exports.options.frameCount; i++) {
-		        statuses.push(null);
-		        events.push(null);
-		    }
-		}
-		function record(status, _events) {
-		    statuses[recordingIndex] = status;
-		    events[recordingIndex] = _events;
-		    recordingIndex++;
-		    if (recordingIndex >= exports.options.frameCount) {
-		        recordingIndex = 0;
-		    }
-		}
-		exports.record = record;
-		function startReplay() {
-		    if (events == null || events[0] == null) {
-		        return false;
-		    }
-		    calcStartingReplayIndex();
-		    return statuses[replayingIndex];
-		}
-		exports.startReplay = startReplay;
-		function getEvents() {
-		    if (replayingIndex === recordingIndex) {
-		        return false;
-		    }
-		    var e = events[replayingIndex];
-		    replayingIndex++;
-		    if (replayingIndex >= exports.options.frameCount) {
-		        replayingIndex = 0;
-		    }
-		    return e;
-		}
-		exports.getEvents = getEvents;
-		function calcStartingReplayIndex() {
-		    replayingIndex = recordingIndex + 1;
-		    if (replayingIndex >= exports.options.frameCount || events[replayingIndex] == null) {
-		        replayingIndex = 0;
-		    }
-		}
-		function objectToArray(object, propertyNames) {
-		    var array = [];
-		    for (var i = 0; i < propertyNames.length; i++) {
-		        var ps = propertyNames[i].split('.');
-		        var o = object;
-		        for (var j = 0; j < ps.length; j++) {
-		            o = o[ps[j]];
-		        }
-		        array.push(o);
-		    }
-		    return array;
-		}
-		exports.objectToArray = objectToArray;
-		function arrayToObject(array, propertyNames, object) {
-		    if (object === void 0) { object = {}; }
-		    for (var i = 0; i < propertyNames.length; i++) {
-		        var ps = propertyNames[i].split('.');
-		        var o = object;
-		        for (var j = 0; j < ps.length; j++) {
-		            if (j < ps.length - 1) {
-		                if (o[ps[j]] == null) {
-		                    o[ps[j]] = {};
-		                }
-		                o = o[ps[j]];
-		            }
-		            else {
-		                o[ps[j]] = array[i];
-		            }
-		        }
-		    }
-		    return object;
-		}
-		exports.arrayToObject = arrayToObject;
-		function saveAsUrl() {
-		    if (events == null || events[0] == null) {
-		        return false;
-		    }
-		    var baseUrl = window.location.href.split('?')[0];
-		    calcStartingReplayIndex();
-		    var encDataStr = LZString.compressToEncodedURIComponent(JSON.stringify({ st: statuses[replayingIndex], ev: events, idx: recordingIndex }));
-		    var url = baseUrl + "?d=" + encDataStr;
-		    try {
-		        window.history.replaceState({}, '', url);
-		    }
-		    catch (e) {
-		        console.log(e);
-		        return false;
-		    }
-		}
-		exports.saveAsUrl = saveAsUrl;
-		function loadFromUrl() {
-		    var query = window.location.search.substring(1);
-		    if (query == null) {
-		        return false;
-		    }
-		    var params = query.split('&');
-		    var encDataStr;
-		    for (var i = 0; i < params.length; i++) {
-		        var param = params[i];
-		        var pair = param.split('=');
-		        if (pair[0] === 'd') {
-		            encDataStr = pair[1];
-		        }
-		    }
-		    if (encDataStr == null) {
-		        return false;
-		    }
-		    try {
-		        var data = JSON.parse(LZString.decompressFromEncodedURIComponent(encDataStr));
-		        initStatusesAndEvents();
-		        recordingIndex = data.idx;
-		        events = data.ev;
-		        calcStartingReplayIndex();
-		        statuses[replayingIndex] = data.st;
-		        return true;
-		    }
-		    catch (e) {
-		        console.log(e);
-		        return false;
-		    }
-		}
-		exports.loadFromUrl = loadFromUrl;
-	
-	
-	/***/ },
-	/* 2 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		var __WEBPACK_AMD_DEFINE_RESULT__;// Copyright (c) 2013 Pieroxy <pieroxy@pieroxy.net>
-		// This work is free. You can redistribute it and/or modify it
-		// under the terms of the WTFPL, Version 2
-		// For more information see LICENSE.txt or http://www.wtfpl.net/
-		//
-		// For more information, the home page:
-		// http://pieroxy.net/blog/pages/lz-string/testing.html
-		//
-		// LZ-based compression algorithm, version 1.4.4
-		var LZString = (function() {
-	
-		// private property
-		var f = String.fromCharCode;
-		var keyStrBase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-		var keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
-		var baseReverseDic = {};
-	
-		function getBaseValue(alphabet, character) {
-		  if (!baseReverseDic[alphabet]) {
-		    baseReverseDic[alphabet] = {};
-		    for (var i=0 ; i<alphabet.length ; i++) {
-		      baseReverseDic[alphabet][alphabet.charAt(i)] = i;
-		    }
-		  }
-		  return baseReverseDic[alphabet][character];
-		}
-	
-		var LZString = {
-		  compressToBase64 : function (input) {
-		    if (input == null) return "";
-		    var res = LZString._compress(input, 6, function(a){return keyStrBase64.charAt(a);});
-		    switch (res.length % 4) { // To produce valid Base64
-		    default: // When could this happen ?
-		    case 0 : return res;
-		    case 1 : return res+"===";
-		    case 2 : return res+"==";
-		    case 3 : return res+"=";
-		    }
-		  },
-	
-		  decompressFromBase64 : function (input) {
-		    if (input == null) return "";
-		    if (input == "") return null;
-		    return LZString._decompress(input.length, 32, function(index) { return getBaseValue(keyStrBase64, input.charAt(index)); });
-		  },
-	
-		  compressToUTF16 : function (input) {
-		    if (input == null) return "";
-		    return LZString._compress(input, 15, function(a){return f(a+32);}) + " ";
-		  },
-	
-		  decompressFromUTF16: function (compressed) {
-		    if (compressed == null) return "";
-		    if (compressed == "") return null;
-		    return LZString._decompress(compressed.length, 16384, function(index) { return compressed.charCodeAt(index) - 32; });
-		  },
-	
-		  //compress into uint8array (UCS-2 big endian format)
-		  compressToUint8Array: function (uncompressed) {
-		    var compressed = LZString.compress(uncompressed);
-		    var buf=new Uint8Array(compressed.length*2); // 2 bytes per character
-	
-		    for (var i=0, TotalLen=compressed.length; i<TotalLen; i++) {
-		      var current_value = compressed.charCodeAt(i);
-		      buf[i*2] = current_value >>> 8;
-		      buf[i*2+1] = current_value % 256;
-		    }
-		    return buf;
-		  },
-	
-		  //decompress from uint8array (UCS-2 big endian format)
-		  decompressFromUint8Array:function (compressed) {
-		    if (compressed===null || compressed===undefined){
-		        return LZString.decompress(compressed);
-		    } else {
-		        var buf=new Array(compressed.length/2); // 2 bytes per character
-		        for (var i=0, TotalLen=buf.length; i<TotalLen; i++) {
-		          buf[i]=compressed[i*2]*256+compressed[i*2+1];
-		        }
-	
-		        var result = [];
-		        buf.forEach(function (c) {
-		          result.push(f(c));
-		        });
-		        return LZString.decompress(result.join(''));
-	
-		    }
-	
-		  },
-	
-	
-		  //compress into a string that is already URI encoded
-		  compressToEncodedURIComponent: function (input) {
-		    if (input == null) return "";
-		    return LZString._compress(input, 6, function(a){return keyStrUriSafe.charAt(a);});
-		  },
-	
-		  //decompress from an output of compressToEncodedURIComponent
-		  decompressFromEncodedURIComponent:function (input) {
-		    if (input == null) return "";
-		    if (input == "") return null;
-		    input = input.replace(/ /g, "+");
-		    return LZString._decompress(input.length, 32, function(index) { return getBaseValue(keyStrUriSafe, input.charAt(index)); });
-		  },
-	
-		  compress: function (uncompressed) {
-		    return LZString._compress(uncompressed, 16, function(a){return f(a);});
-		  },
-		  _compress: function (uncompressed, bitsPerChar, getCharFromInt) {
-		    if (uncompressed == null) return "";
-		    var i, value,
-		        context_dictionary= {},
-		        context_dictionaryToCreate= {},
-		        context_c="",
-		        context_wc="",
-		        context_w="",
-		        context_enlargeIn= 2, // Compensate for the first entry which should not count
-		        context_dictSize= 3,
-		        context_numBits= 2,
-		        context_data=[],
-		        context_data_val=0,
-		        context_data_position=0,
-		        ii;
-	
-		    for (ii = 0; ii < uncompressed.length; ii += 1) {
-		      context_c = uncompressed.charAt(ii);
-		      if (!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)) {
-		        context_dictionary[context_c] = context_dictSize++;
-		        context_dictionaryToCreate[context_c] = true;
-		      }
-	
-		      context_wc = context_w + context_c;
-		      if (Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)) {
-		        context_w = context_wc;
-		      } else {
-		        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)) {
-		          if (context_w.charCodeAt(0)<256) {
-		            for (i=0 ; i<context_numBits ; i++) {
-		              context_data_val = (context_data_val << 1);
-		              if (context_data_position == bitsPerChar-1) {
-		                context_data_position = 0;
-		                context_data.push(getCharFromInt(context_data_val));
-		                context_data_val = 0;
-		              } else {
-		                context_data_position++;
-		              }
-		            }
-		            value = context_w.charCodeAt(0);
-		            for (i=0 ; i<8 ; i++) {
-		              context_data_val = (context_data_val << 1) | (value&1);
-		              if (context_data_position == bitsPerChar-1) {
-		                context_data_position = 0;
-		                context_data.push(getCharFromInt(context_data_val));
-		                context_data_val = 0;
-		              } else {
-		                context_data_position++;
-		              }
-		              value = value >> 1;
-		            }
-		          } else {
-		            value = 1;
-		            for (i=0 ; i<context_numBits ; i++) {
-		              context_data_val = (context_data_val << 1) | value;
-		              if (context_data_position ==bitsPerChar-1) {
-		                context_data_position = 0;
-		                context_data.push(getCharFromInt(context_data_val));
-		                context_data_val = 0;
-		              } else {
-		                context_data_position++;
-		              }
-		              value = 0;
-		            }
-		            value = context_w.charCodeAt(0);
-		            for (i=0 ; i<16 ; i++) {
-		              context_data_val = (context_data_val << 1) | (value&1);
-		              if (context_data_position == bitsPerChar-1) {
-		                context_data_position = 0;
-		                context_data.push(getCharFromInt(context_data_val));
-		                context_data_val = 0;
-		              } else {
-		                context_data_position++;
-		              }
-		              value = value >> 1;
-		            }
-		          }
-		          context_enlargeIn--;
-		          if (context_enlargeIn == 0) {
-		            context_enlargeIn = Math.pow(2, context_numBits);
-		            context_numBits++;
-		          }
-		          delete context_dictionaryToCreate[context_w];
-		        } else {
-		          value = context_dictionary[context_w];
-		          for (i=0 ; i<context_numBits ; i++) {
-		            context_data_val = (context_data_val << 1) | (value&1);
-		            if (context_data_position == bitsPerChar-1) {
-		              context_data_position = 0;
-		              context_data.push(getCharFromInt(context_data_val));
-		              context_data_val = 0;
-		            } else {
-		              context_data_position++;
-		            }
-		            value = value >> 1;
-		          }
-	
-	
-		        }
-		        context_enlargeIn--;
-		        if (context_enlargeIn == 0) {
-		          context_enlargeIn = Math.pow(2, context_numBits);
-		          context_numBits++;
-		        }
-		        // Add wc to the dictionary.
-		        context_dictionary[context_wc] = context_dictSize++;
-		        context_w = String(context_c);
-		      }
-		    }
-	
-		    // Output the code for w.
-		    if (context_w !== "") {
-		      if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)) {
-		        if (context_w.charCodeAt(0)<256) {
-		          for (i=0 ; i<context_numBits ; i++) {
-		            context_data_val = (context_data_val << 1);
-		            if (context_data_position == bitsPerChar-1) {
-		              context_data_position = 0;
-		              context_data.push(getCharFromInt(context_data_val));
-		              context_data_val = 0;
-		            } else {
-		              context_data_position++;
-		            }
-		          }
-		          value = context_w.charCodeAt(0);
-		          for (i=0 ; i<8 ; i++) {
-		            context_data_val = (context_data_val << 1) | (value&1);
-		            if (context_data_position == bitsPerChar-1) {
-		              context_data_position = 0;
-		              context_data.push(getCharFromInt(context_data_val));
-		              context_data_val = 0;
-		            } else {
-		              context_data_position++;
-		            }
-		            value = value >> 1;
-		          }
-		        } else {
-		          value = 1;
-		          for (i=0 ; i<context_numBits ; i++) {
-		            context_data_val = (context_data_val << 1) | value;
-		            if (context_data_position == bitsPerChar-1) {
-		              context_data_position = 0;
-		              context_data.push(getCharFromInt(context_data_val));
-		              context_data_val = 0;
-		            } else {
-		              context_data_position++;
-		            }
-		            value = 0;
-		          }
-		          value = context_w.charCodeAt(0);
-		          for (i=0 ; i<16 ; i++) {
-		            context_data_val = (context_data_val << 1) | (value&1);
-		            if (context_data_position == bitsPerChar-1) {
-		              context_data_position = 0;
-		              context_data.push(getCharFromInt(context_data_val));
-		              context_data_val = 0;
-		            } else {
-		              context_data_position++;
-		            }
-		            value = value >> 1;
-		          }
-		        }
-		        context_enlargeIn--;
-		        if (context_enlargeIn == 0) {
-		          context_enlargeIn = Math.pow(2, context_numBits);
-		          context_numBits++;
-		        }
-		        delete context_dictionaryToCreate[context_w];
-		      } else {
-		        value = context_dictionary[context_w];
-		        for (i=0 ; i<context_numBits ; i++) {
-		          context_data_val = (context_data_val << 1) | (value&1);
-		          if (context_data_position == bitsPerChar-1) {
-		            context_data_position = 0;
-		            context_data.push(getCharFromInt(context_data_val));
-		            context_data_val = 0;
-		          } else {
-		            context_data_position++;
-		          }
-		          value = value >> 1;
-		        }
-	
-	
-		      }
-		      context_enlargeIn--;
-		      if (context_enlargeIn == 0) {
-		        context_enlargeIn = Math.pow(2, context_numBits);
-		        context_numBits++;
-		      }
-		    }
-	
-		    // Mark the end of the stream
-		    value = 2;
-		    for (i=0 ; i<context_numBits ; i++) {
-		      context_data_val = (context_data_val << 1) | (value&1);
-		      if (context_data_position == bitsPerChar-1) {
-		        context_data_position = 0;
-		        context_data.push(getCharFromInt(context_data_val));
-		        context_data_val = 0;
-		      } else {
-		        context_data_position++;
-		      }
-		      value = value >> 1;
-		    }
-	
-		    // Flush the last char
-		    while (true) {
-		      context_data_val = (context_data_val << 1);
-		      if (context_data_position == bitsPerChar-1) {
-		        context_data.push(getCharFromInt(context_data_val));
-		        break;
-		      }
-		      else context_data_position++;
-		    }
-		    return context_data.join('');
-		  },
-	
-		  decompress: function (compressed) {
-		    if (compressed == null) return "";
-		    if (compressed == "") return null;
-		    return LZString._decompress(compressed.length, 32768, function(index) { return compressed.charCodeAt(index); });
-		  },
-	
-		  _decompress: function (length, resetValue, getNextValue) {
-		    var dictionary = [],
-		        next,
-		        enlargeIn = 4,
-		        dictSize = 4,
-		        numBits = 3,
-		        entry = "",
-		        result = [],
-		        i,
-		        w,
-		        bits, resb, maxpower, power,
-		        c,
-		        data = {val:getNextValue(0), position:resetValue, index:1};
-	
-		    for (i = 0; i < 3; i += 1) {
-		      dictionary[i] = i;
-		    }
-	
-		    bits = 0;
-		    maxpower = Math.pow(2,2);
-		    power=1;
-		    while (power!=maxpower) {
-		      resb = data.val & data.position;
-		      data.position >>= 1;
-		      if (data.position == 0) {
-		        data.position = resetValue;
-		        data.val = getNextValue(data.index++);
-		      }
-		      bits |= (resb>0 ? 1 : 0) * power;
-		      power <<= 1;
-		    }
-	
-		    switch (next = bits) {
-		      case 0:
-		          bits = 0;
-		          maxpower = Math.pow(2,8);
-		          power=1;
-		          while (power!=maxpower) {
-		            resb = data.val & data.position;
-		            data.position >>= 1;
-		            if (data.position == 0) {
-		              data.position = resetValue;
-		              data.val = getNextValue(data.index++);
-		            }
-		            bits |= (resb>0 ? 1 : 0) * power;
-		            power <<= 1;
-		          }
-		        c = f(bits);
-		        break;
-		      case 1:
-		          bits = 0;
-		          maxpower = Math.pow(2,16);
-		          power=1;
-		          while (power!=maxpower) {
-		            resb = data.val & data.position;
-		            data.position >>= 1;
-		            if (data.position == 0) {
-		              data.position = resetValue;
-		              data.val = getNextValue(data.index++);
-		            }
-		            bits |= (resb>0 ? 1 : 0) * power;
-		            power <<= 1;
-		          }
-		        c = f(bits);
-		        break;
-		      case 2:
-		        return "";
-		    }
-		    dictionary[3] = c;
-		    w = c;
-		    result.push(c);
-		    while (true) {
-		      if (data.index > length) {
-		        return "";
-		      }
-	
-		      bits = 0;
-		      maxpower = Math.pow(2,numBits);
-		      power=1;
-		      while (power!=maxpower) {
-		        resb = data.val & data.position;
-		        data.position >>= 1;
-		        if (data.position == 0) {
-		          data.position = resetValue;
-		          data.val = getNextValue(data.index++);
-		        }
-		        bits |= (resb>0 ? 1 : 0) * power;
-		        power <<= 1;
-		      }
-	
-		      switch (c = bits) {
-		        case 0:
-		          bits = 0;
-		          maxpower = Math.pow(2,8);
-		          power=1;
-		          while (power!=maxpower) {
-		            resb = data.val & data.position;
-		            data.position >>= 1;
-		            if (data.position == 0) {
-		              data.position = resetValue;
-		              data.val = getNextValue(data.index++);
-		            }
-		            bits |= (resb>0 ? 1 : 0) * power;
-		            power <<= 1;
-		          }
-	
-		          dictionary[dictSize++] = f(bits);
-		          c = dictSize-1;
-		          enlargeIn--;
-		          break;
-		        case 1:
-		          bits = 0;
-		          maxpower = Math.pow(2,16);
-		          power=1;
-		          while (power!=maxpower) {
-		            resb = data.val & data.position;
-		            data.position >>= 1;
-		            if (data.position == 0) {
-		              data.position = resetValue;
-		              data.val = getNextValue(data.index++);
-		            }
-		            bits |= (resb>0 ? 1 : 0) * power;
-		            power <<= 1;
-		          }
-		          dictionary[dictSize++] = f(bits);
-		          c = dictSize-1;
-		          enlargeIn--;
-		          break;
-		        case 2:
-		          return result.join('');
-		      }
-	
-		      if (enlargeIn == 0) {
-		        enlargeIn = Math.pow(2, numBits);
-		        numBits++;
-		      }
-	
-		      if (dictionary[c]) {
-		        entry = dictionary[c];
-		      } else {
-		        if (c === dictSize) {
-		          entry = w + w.charAt(0);
-		        } else {
-		          return null;
-		        }
-		      }
-		      result.push(entry);
-	
-		      // Add w+entry[0] to the dictionary.
-		      dictionary[dictSize++] = w + entry.charAt(0);
-		      enlargeIn--;
-	
-		      w = entry;
-	
-		      if (enlargeIn == 0) {
-		        enlargeIn = Math.pow(2, numBits);
-		        numBits++;
-		      }
-	
-		    }
-		  }
-		};
-		  return LZString;
-		})();
-	
-		if (true) {
-		  !(__WEBPACK_AMD_DEFINE_RESULT__ = function () { return LZString; }.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-		} else if( typeof module !== 'undefined' && module != null ) {
-		  module.exports = LZString
-		}
-	
-	
-	/***/ }
-	/******/ ])
-	});
-	;
-
-/***/ },
-/* 7 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	var _ = __webpack_require__(8);
-	var pag = __webpack_require__(3);
-	var ppe = __webpack_require__(4);
-	var ir = __webpack_require__(6);
-	var s1 = __webpack_require__(2);
-	var screen = __webpack_require__(10);
-	var p5;
-	var p;
-	var rotationNum = 16;
-	var Actor = (function () {
-	    function Actor() {
-	        this.pos = new p5.Vector();
-	        this.vel = new p5.Vector();
-	        this.angle = 0;
-	        this.speed = 0;
-	        this.isAlive = true;
-	        this.priority = 1;
-	        this.ticks = 0;
-	        this.collision = new p5.Vector();
-	        this.context = screen.context;
-	        Actor.add(this);
-	        this.type = ('' + this.constructor).replace(/^\s*function\s*([^\(]*)[\S\s]+$/im, '$1');
-	    }
-	    Actor.prototype.update = function () {
-	        this.pos.add(this.vel);
-	        this.pos.x += Math.cos(this.angle) * this.speed;
-	        this.pos.y += Math.sin(this.angle) * this.speed;
-	        if (this.pixels != null) {
-	            this.drawPixels();
-	        }
-	        this.ticks++;
-	    };
-	    Actor.prototype.remove = function () {
-	        this.isAlive = false;
-	    };
-	    Actor.prototype.testCollision = function (type) {
-	        var _this = this;
-	        return _.filter(Actor.get(type), function (a) {
-	            return p.abs(_this.pos.x - a.pos.x) < (_this.collision.x + a.collision.x) / 2 &&
-	                p.abs(_this.pos.y - a.pos.y) < (_this.collision.y + a.collision.y) / 2;
-	        });
-	    };
-	    Actor.prototype.emitParticles = function (patternName) {
-	        var args = [];
-	        for (var _i = 1; _i < arguments.length; _i++) {
-	            args[_i - 1] = arguments[_i];
-	        }
-	        ppe.emit.apply(ppe, [patternName, this.pos.x, this.pos.y, this.angle].concat(args));
-	    };
-	    Actor.prototype.drawPixels = function (x, y) {
-	        if (x === void 0) { x = null; }
-	        if (y === void 0) { y = null; }
-	        if (x == null) {
-	            x = this.pos.x;
-	        }
-	        if (y == null) {
-	            y = this.pos.y;
-	        }
-	        var a = this.angle;
-	        if (a < 0) {
-	            a = Math.PI * 2 - Math.abs(a % (Math.PI * 2));
-	        }
-	        var pxs = this.pixels[Math.round(a / (Math.PI * 2 / rotationNum)) % rotationNum];
-	        var pw = pxs.length;
-	        var ph = pxs[0].length;
-	        var sbx = Math.floor(x - pw / 2);
-	        var sby = Math.floor(y - ph / 2);
-	        for (var y_1 = 0, sy = sby; y_1 < ph; y_1++, sy++) {
-	            for (var x_1 = 0, sx = sbx; x_1 < pw; x_1++, sx++) {
-	                var px = pxs[x_1][y_1];
-	                if (!px.isEmpty) {
-	                    this.context.fillStyle = px.style;
-	                    this.context.fillRect(sx, sy, 1, 1);
-	                }
-	            }
-	        }
-	    };
-	    Actor.prototype.getReplayStatus = function () {
-	        if (this.replayPropertyNames == null) {
-	            return null;
-	        }
-	        return ir.objectToArray(this, this.replayPropertyNames);
-	    };
-	    Actor.prototype.setReplayStatus = function (status) {
-	        ir.arrayToObject(status, this.replayPropertyNames, this);
-	    };
-	    Actor.init = function () {
-	        p5 = s1.p5;
-	        p = s1.p;
-	        pag.defaultOptions.isMirrorY = true;
-	        pag.defaultOptions.rotationNum = rotationNum;
-	        pag.defaultOptions.scale = 2;
-	        Actor.clear();
-	    };
-	    Actor.add = function (actor) {
-	        Actor.actors.push(actor);
-	    };
-	    Actor.clear = function () {
-	        Actor.actors = [];
-	    };
-	    Actor.update = function () {
-	        Actor.actors.sort(function (a, b) { return a.priority - b.priority; });
-	        _.forEach(Actor.actors, function (a) {
-	            a.update();
-	        });
-	        for (var i = 0; i < Actor.actors.length;) {
-	            if (Actor.actors[i].isAlive === false) {
-	                Actor.actors.splice(i, 1);
-	            }
-	            else {
-	                i++;
-	            }
-	        }
-	    };
-	    Actor.get = function (type) {
-	        return _.filter(Actor.actors, function (a) { return a.type === type; });
-	    };
-	    Actor.getReplayStatus = function () {
-	        var status = [];
-	        _.forEach(Actor.actors, function (a) {
-	            var array = a.getReplayStatus();
-	            if (array != null) {
-	                status.push([a.type, array]);
-	            }
-	        });
-	        return status;
-	    };
-	    Actor.setReplayStatus = function (status, actorGeneratorFunc) {
-	        _.forEach(status, function (s) {
-	            actorGeneratorFunc(s[0], s[1]);
-	        });
-	    };
-	    return Actor;
-	}());
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.default = Actor;
-
-
-/***/ },
-/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(global, module) {/**
@@ -20787,10 +17273,10 @@
 	  }
 	}.call(this));
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(9)(module)))
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }()), __webpack_require__(3)(module)))
 
 /***/ },
-/* 9 */
+/* 3 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -20806,13 +17292,5066 @@
 
 
 /***/ },
+/* 4 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["pag"] = factory();
+		else
+			root["pag"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(1);
+	
+	
+	/***/ },
+	/* 1 */
+	/***/ function(module, exports) {
+	
+		"use strict";
+		exports.defaultOptions = {
+		    isMirrorX: false,
+		    isMirrorY: false,
+		    seed: 0,
+		    hue: null,
+		    saturation: 0.8,
+		    value: 1,
+		    rotationNum: 1,
+		    scale: 1,
+		    scaleX: null,
+		    scaleY: null,
+		    colorNoise: 0.1,
+		    colorLighting: 1,
+		    edgeDarkness: 0.4,
+		    isShowingEdge: true,
+		    isShowingBody: true,
+		};
+		var generatedPixels = {};
+		var seed = 0;
+		function setSeed(_seed) {
+		    if (_seed === void 0) { _seed = 0; }
+		    seed = _seed;
+		}
+		exports.setSeed = setSeed;
+		function generate(patterns, _options) {
+		    if (_options === void 0) { _options = {}; }
+		    _options.baseSeed = seed;
+		    var jso = JSON.stringify({ patterns: patterns, options: _options });
+		    if (generatedPixels[jso]) {
+		        return generatedPixels[jso];
+		    }
+		    var options = {};
+		    forOwn(exports.defaultOptions, function (v, k) {
+		        options[k] = v;
+		    });
+		    forOwn(_options, function (v, k) {
+		        options[k] = v;
+		    });
+		    var random = new Random();
+		    var rndSeed = seed + getHashFromString(patterns.join());
+		    if (options.seed != null) {
+		        rndSeed += options.seed;
+		    }
+		    random.setSeed(rndSeed);
+		    if (options.hue == null) {
+		        options.hue = random.get01();
+		    }
+		    if (options.scaleX == null) {
+		        options.scaleX = options.scale;
+		    }
+		    if (options.scaleY == null) {
+		        options.scaleY = options.scale;
+		    }
+		    var pixels = generatePixels(patterns, options, random);
+		    var result;
+		    if (options.rotationNum > 1) {
+		        result = map(createRotated(pixels, options.rotationNum), function (p) {
+		            return createColored(p, options);
+		        });
+		    }
+		    else {
+		        result = [createColored(pixels, options)];
+		    }
+		    generatedPixels[jso] = result;
+		    return result;
+		}
+		exports.generate = generate;
+		var Pixel = (function () {
+		    function Pixel() {
+		        this.r = 0;
+		        this.g = 0;
+		        this.b = 0;
+		        this.isEmpty = true;
+		    }
+		    Pixel.prototype.setFromHsv = function (hue, saturation, value) {
+		        this.isEmpty = false;
+		        this.r = value;
+		        this.g = value;
+		        this.b = value;
+		        var h = hue * 6;
+		        var i = Math.floor(h);
+		        var f = h - i;
+		        switch (i) {
+		            case 0:
+		                this.g *= 1 - saturation * (1 - f);
+		                this.b *= 1 - saturation;
+		                break;
+		            case 1:
+		                this.b *= 1 - saturation;
+		                this.r *= 1 - saturation * f;
+		                break;
+		            case 2:
+		                this.b *= 1 - saturation * (1 - f);
+		                this.r *= 1 - saturation;
+		                break;
+		            case 3:
+		                this.r *= 1 - saturation;
+		                this.g *= 1 - saturation * f;
+		                break;
+		            case 4:
+		                this.r *= 1 - saturation * (1 - f);
+		                this.g *= 1 - saturation;
+		                break;
+		            case 5:
+		                this.g *= 1 - saturation;
+		                this.b *= 1 - saturation * f;
+		                break;
+		        }
+		        this.setStyle();
+		    };
+		    Pixel.prototype.setStyle = function () {
+		        var r = Math.floor(this.r * 255);
+		        var g = Math.floor(this.g * 255);
+		        var b = Math.floor(this.b * 255);
+		        this.style = "rgb(" + r + "," + g + "," + b + ")";
+		    };
+		    return Pixel;
+		}());
+		exports.Pixel = Pixel;
+		function generatePixels(patterns, options, random) {
+		    var pw = reduce(patterns, function (w, p) { return Math.max(w, p.length); }, 0);
+		    var ph = patterns.length;
+		    var w = Math.round(pw * options.scaleX);
+		    var h = Math.round(ph * options.scaleY);
+		    w += options.isMirrorX ? 1 : 2;
+		    h += options.isMirrorY ? 1 : 2;
+		    var pixels = createPixels(patterns, pw, ph, w, h, options.scaleX, options.scaleY, random);
+		    if (options.isMirrorX) {
+		        pixels = mirrorX(pixels, w, h);
+		        w *= 2;
+		    }
+		    if (options.isMirrorY) {
+		        pixels = mirrorY(pixels, w, h);
+		        h *= 2;
+		    }
+		    pixels = createEdge(pixels, w, h);
+		    return pixels;
+		}
+		function createPixels(patterns, pw, ph, w, h, scaleX, scaleY, random) {
+		    return timesMap(w, function (x) {
+		        var px = Math.floor((x - 1) / scaleX);
+		        return timesMap(h, function (y) {
+		            var py = Math.floor((y - 1) / scaleY);
+		            if (px < 0 || px >= pw || py < 0 || py >= ph) {
+		                return 0;
+		            }
+		            var c = px < patterns[py].length ? patterns[py][px] : ' ';
+		            var m = 0;
+		            if (c === '-') {
+		                m = random.get01() < 0.5 ? 1 : 0;
+		            }
+		            else if (c === 'x' || c === 'X') {
+		                m = random.get01() < 0.5 ? 1 : -1;
+		            }
+		            else if (c === 'o' || c === 'O') {
+		                m = -1;
+		            }
+		            else if (c === '*') {
+		                m = 1;
+		            }
+		            return m;
+		        });
+		    });
+		}
+		function mirrorX(pixels, w, h) {
+		    return timesMap(w * 2, function (x) { return timesMap(h, function (y) {
+		        return x < w ? pixels[x][y] : pixels[w * 2 - x - 1][y];
+		    }); });
+		}
+		function mirrorY(pixels, w, h) {
+		    return timesMap(w, function (x) { return timesMap(h * 2, function (y) {
+		        return y < h ? pixels[x][y] : pixels[x][h * 2 - y - 1];
+		    }); });
+		}
+		function createEdge(pixels, w, h) {
+		    return timesMap(w, function (x) { return timesMap(h, function (y) {
+		        return ((pixels[x][y] === 0 &&
+		            ((x - 1 >= 0 && pixels[x - 1][y] > 0) ||
+		                (x + 1 < w && pixels[x + 1][y] > 0) ||
+		                (y - 1 >= 0 && pixels[x][y - 1] > 0) ||
+		                (y + 1 < h && pixels[x][y + 1] > 0))) ?
+		            -1 : pixels[x][y]);
+		    }); });
+		}
+		function createRotated(pixels, rotationNum) {
+		    var pw = pixels.length;
+		    var ph = pixels[0].length;
+		    var pcx = pw / 2;
+		    var pcy = ph / 2;
+		    var w = Math.round(pw * 1.5 / 2) * 2;
+		    var h = Math.round(ph * 1.5 / 2) * 2;
+		    var cx = w / 2;
+		    var cy = h / 2;
+		    var offset = { x: 0, y: 0 };
+		    return timesMap(rotationNum, function (ai) {
+		        var angle = -ai * Math.PI * 2 / rotationNum;
+		        return timesMap(w, function (x) { return timesMap(h, function (y) {
+		            offset.x = x - cx;
+		            offset.y = y - cy;
+		            rotateVector(offset, angle);
+		            var px = Math.round(offset.x + pcx);
+		            var py = Math.round(offset.y + pcy);
+		            return (px < 0 || px >= pw || py < 0 || py >= ph) ?
+		                0 : pixels[px][py];
+		        }); });
+		    });
+		}
+		function rotateVector(v, angle) {
+		    var vx = v.x;
+		    v.x = Math.cos(angle) * vx - Math.sin(angle) * v.y;
+		    v.y = Math.sin(angle) * vx + Math.cos(angle) * v.y;
+		}
+		function createColored(pixels, options) {
+		    var w = pixels.length;
+		    var h = pixels[0].length;
+		    var random = new Random();
+		    random.setSeed(options.seed);
+		    return timesMap(w, function (x) { return timesMap(h, function (y) {
+		        var p = pixels[x][y];
+		        if ((p === 1 && !options.isShowingBody) ||
+		            (p === -1 && !options.isShowingEdge)) {
+		            return new Pixel();
+		        }
+		        if (p !== 0) {
+		            var l = Math.sin(y / h * Math.PI) * options.colorLighting +
+		                (1 - options.colorLighting);
+		            var v = (l * (1 - options.colorNoise) +
+		                random.get01() * options.colorNoise) * options.value;
+		            v = v >= 0 ? (v <= 1 ? v : 1) : 0;
+		            if (p === -1) {
+		                v *= (1 - options.edgeDarkness);
+		            }
+		            var px = new Pixel();
+		            px.setFromHsv(options.hue, options.saturation, v);
+		            return px;
+		        }
+		        else {
+		            return new Pixel();
+		        }
+		    }); });
+		}
+		function getHashFromString(str) {
+		    var hash = 0;
+		    var len = str.length;
+		    for (var i = 0; i < len; i++) {
+		        var chr = str.charCodeAt(i);
+		        hash = ((hash << 5) - hash) + chr;
+		        hash |= 0;
+		    }
+		    return hash;
+		}
+		function nArray(n, v) {
+		    var a = [];
+		    for (var i = 0; i < n; i++) {
+		        a.push(v);
+		    }
+		    return a;
+		}
+		function times(n, func) {
+		    for (var i = 0; i < n; i++) {
+		        func(i);
+		    }
+		}
+		function timesMap(n, func) {
+		    var result = [];
+		    for (var i = 0; i < n; i++) {
+		        result.push(func(i));
+		    }
+		    return result;
+		}
+		function forEach(array, func) {
+		    for (var i = 0; i < array.length; i++) {
+		        func(array[i]);
+		    }
+		}
+		function forOwn(obj, func) {
+		    for (var p in obj) {
+		        func(obj[p], p);
+		    }
+		}
+		function map(array, func) {
+		    var result = [];
+		    for (var i = 0; i < array.length; i++) {
+		        result.push(func(array[i], i));
+		    }
+		    return result;
+		}
+		function reduce(array, func, initValue) {
+		    var result = initValue;
+		    for (var i = 0; i < array.length; i++) {
+		        result = func(result, array[i], i);
+		    }
+		    return result;
+		}
+		var Random = (function () {
+		    function Random() {
+		        this.setSeed();
+		        this.get01 = this.get01.bind(this);
+		    }
+		    Random.prototype.setSeed = function (v) {
+		        if (v === void 0) { v = -0x7fffffff; }
+		        if (v === -0x7fffffff) {
+		            v = Math.floor(Math.random() * 0x7fffffff);
+		        }
+		        this.x = v = 1812433253 * (v ^ (v >> 30));
+		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
+		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
+		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
+		        return this;
+		    };
+		    Random.prototype.getInt = function () {
+		        var t = this.x ^ (this.x << 11);
+		        this.x = this.y;
+		        this.y = this.z;
+		        this.z = this.w;
+		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
+		        return this.w;
+		    };
+		    Random.prototype.get01 = function () {
+		        return this.getInt() / 0x7fffffff;
+		    };
+		    return Random;
+		}());
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["sss"] = factory();
+		else
+			root["sss"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(3);
+	
+	
+	/***/ },
+	/* 1 */,
+	/* 2 */,
+	/* 3 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		"use strict";
+		var __extends = (this && this.__extends) || function (d, b) {
+		    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+		    function __() { this.constructor = d; }
+		    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+		};
+		var jsfx = __webpack_require__(4);
+		var live;
+		var random;
+		var buffers = {};
+		var tracks = [];
+		var schedulingInterval;
+		var seed;
+		function init(_seed, tempo, fps) {
+		    if (_seed === void 0) { _seed = 0; }
+		    if (tempo === void 0) { tempo = 120; }
+		    if (fps === void 0) { fps = 60; }
+		    live = jsfx.Live({});
+		    setVolume(0.1);
+		    seed = _seed;
+		    random = new Random();
+		    jsfx.setRandomFunc(random.get01);
+		    exports.playInterval = 60 / tempo;
+		    schedulingInterval = 1 / fps * 2;
+		}
+		exports.init = init;
+		function setSeed(_seed) {
+		    if (_seed === void 0) { _seed = 0; }
+		    seed = _seed;
+		}
+		exports.setSeed = setSeed;
+		exports.Preset = jsfx.Preset;
+		var playPrefixes = {
+		    c: exports.Preset.Coin,
+		    l: exports.Preset.Laser,
+		    e: exports.Preset.Explosion,
+		    p: exports.Preset.Powerup,
+		    h: exports.Preset.Hit,
+		    j: exports.Preset.Jump,
+		    s: exports.Preset.Select,
+		    u: exports.Preset.Lucky,
+		};
+		var playprefixeArray = values(playPrefixes);
+		function play(name, mult, params) {
+		    if (name === void 0) { name = '0'; }
+		    if (mult === void 0) { mult = 2; }
+		    if (params === void 0) { params = null; }
+		    if (live == null) {
+		        return;
+		    }
+		    if (buffers[name] != null) {
+		        buffers[name].play();
+		        return;
+		    }
+		    random.setSeed(seed + getHashFromString(name));
+		    if (params == null) {
+		        var p = playPrefixes[name[0]];
+		        if (typeof p === 'undefined') {
+		            p = random.sample(playprefixeArray);
+		        }
+		        params = nArray(mult, p);
+		    }
+		    buffers[name] = new Sound(params);
+		    buffers[name].play();
+		}
+		exports.play = play;
+		function setVolume(volume) {
+		    if (live == null) {
+		        return;
+		    }
+		    live._volume.gain.value = volume;
+		}
+		exports.setVolume = setVolume;
+		var quantize = 0.5;
+		function setQuantize(_quantize) {
+		    quantize = _quantize;
+		}
+		exports.setQuantize = setQuantize;
+		function playBgm(name, interval, params, tracksNum) {
+		    if (name === void 0) { name = '0'; }
+		    if (interval === void 0) { interval = 0.25; }
+		    if (params === void 0) { params = [exports.Preset.Laser, exports.Preset.Hit]; }
+		    if (tracksNum === void 0) { tracksNum = 8; }
+		    if (live == null) {
+		        return;
+		    }
+		    stopBgm();
+		    random.setSeed(seed + getHashFromString(name));
+		    tracks = [];
+		    times(tracksNum, function () { return addRandomTrack(interval, params); });
+		    forEach(tracks, function (t) { return t.play(); });
+		}
+		exports.playBgm = playBgm;
+		function stopBgm() {
+		    if (live == null) {
+		        return;
+		    }
+		    forEach(tracks, function (t) { return t.stop(); });
+		}
+		exports.stopBgm = stopBgm;
+		function update() {
+		    if (live == null) {
+		        return;
+		    }
+		    var currentTime = live._context.currentTime;
+		    var schedulingTime = currentTime + schedulingInterval;
+		    forOwn(buffers, function (b) { return b.update(currentTime, schedulingTime); });
+		    forEach(tracks, function (t) { return t.update(currentTime, schedulingTime); });
+		    return currentTime;
+		}
+		exports.update = update;
+		function reset() {
+		    stopBgm();
+		    buffers = {};
+		    tracks = [];
+		}
+		exports.reset = reset;
+		var isEmptyPlayed = false;
+		function playEmpty() {
+		    if (live == null) {
+		        return;
+		    }
+		    if (isEmptyPlayed) {
+		        return;
+		    }
+		    var eb = live._createEmptyBuffer();
+		    live._playBuffer(eb, 0);
+		    isEmptyPlayed = true;
+		}
+		exports.playEmpty = playEmpty;
+		function playParam(param) {
+		    if (live == null) {
+		        return;
+		    }
+		    live._play(param);
+		}
+		exports.playParam = playParam;
+		function addRandomTrack(interval, params) {
+		    addTrack(random.sample(params), createRandomPattern(), interval);
+		}
+		function createRandomPattern() {
+		    var len = 64;
+		    var pattern = nArray(len, false);
+		    var pi = 4;
+		    while (pi <= len) {
+		        pattern = reversePattern(pattern, pi);
+		        pi *= 2;
+		    }
+		    return pattern;
+		}
+		function reversePattern(pattern, interval) {
+		    var pt = nArray(interval, false);
+		    var pr = 0.5;
+		    for (var i = 0; i < interval / 2; i++) {
+		        if (random.f() < pr) {
+		            pt[random.i(interval - 1)] = true;
+		        }
+		        pr *= 0.5;
+		    }
+		    return map(pattern, function (p, i) { return pt[i % interval] ? !p : p; });
+		}
+		function addTrack(param, pattern, interval) {
+		    if (interval === void 0) { interval = 0.25; }
+		    var track = new Track(param);
+		    track.patternInterval = interval;
+		    if (typeof pattern === 'string') {
+		        track.pattern = mapString(pattern, function (p) { return p === '1'; });
+		    }
+		    else {
+		        track.pattern = pattern;
+		    }
+		    tracks.push(track);
+		}
+		exports.addTrack = addTrack;
+		function getHashFromString(str) {
+		    var hash = 0;
+		    var len = str.length;
+		    for (var i = 0; i < len; i++) {
+		        var chr = str.charCodeAt(i);
+		        hash = ((hash << 5) - hash) + chr;
+		        hash |= 0;
+		    }
+		    return hash;
+		}
+		function values(obj) {
+		    var vs = [];
+		    for (var p in obj) {
+		        if (obj.hasOwnProperty(p)) {
+		            vs.push(obj[p]);
+		        }
+		    }
+		    return vs;
+		}
+		function nArray(n, v) {
+		    var a = [];
+		    for (var i = 0; i < n; i++) {
+		        a.push(v);
+		    }
+		    return a;
+		}
+		function times(n, func) {
+		    for (var i = 0; i < n; i++) {
+		        func();
+		    }
+		}
+		function forEach(array, func) {
+		    for (var i = 0; i < array.length; i++) {
+		        func(array[i]);
+		    }
+		}
+		function forOwn(obj, func) {
+		    for (var p in obj) {
+		        func(obj[p]);
+		    }
+		}
+		function map(array, func) {
+		    var result = [];
+		    for (var i = 0; i < array.length; i++) {
+		        result.push(func(array[i], i));
+		    }
+		    return result;
+		}
+		function mapString(str, func) {
+		    var result = [];
+		    for (var i = 0; i < str.length; i++) {
+		        result.push(func(str.charAt(i), i));
+		    }
+		    return result;
+		}
+		var Sound = (function () {
+		    function Sound(params) {
+		        this.isPlaying = false;
+		        this.playedTime = null;
+		        if (!Array.isArray(params)) {
+		            params = [params];
+		        }
+		        this.buffers = map(params, function (p) { return live._createBuffer(p); });
+		    }
+		    Sound.prototype.play = function () {
+		        this.isPlaying = true;
+		    };
+		    Sound.prototype.stop = function () {
+		        this.isPlaying = false;
+		    };
+		    Sound.prototype.update = function (currentTime, schedulingTime) {
+		        if (!this.isPlaying) {
+		            return;
+		        }
+		        this.isPlaying = false;
+		        var interval = exports.playInterval * quantize;
+		        var time = interval > 0 ?
+		            Math.ceil(currentTime / interval) * interval : currentTime;
+		        if (this.playedTime == null || time > this.playedTime) {
+		            this.playLater(time);
+		            this.playedTime = time;
+		        }
+		        return;
+		    };
+		    Sound.prototype.playLater = function (when) {
+		        forEach(this.buffers, function (b) { return live._playBuffer(b, when); });
+		    };
+		    return Sound;
+		}());
+		var Track = (function (_super) {
+		    __extends(Track, _super);
+		    function Track() {
+		        _super.apply(this, arguments);
+		        this.patternIndex = 0;
+		        this.patternInterval = 0.25;
+		        this.scheduledTime = null;
+		    }
+		    Track.prototype.update = function (currentTime, schedulingTime) {
+		        if (!this.isPlaying) {
+		            return;
+		        }
+		        if (this.scheduledTime == null) {
+		            this.scheduledTime = Math.ceil(currentTime / exports.playInterval) * exports.playInterval -
+		                exports.playInterval * this.patternInterval;
+		            this.patternIndex = 0;
+		            this.calcNextScheduledTime();
+		        }
+		        for (var i = 0; i < 99; i++) {
+		            if (this.scheduledTime >= currentTime) {
+		                break;
+		            }
+		            this.calcNextScheduledTime();
+		        }
+		        while (this.scheduledTime <= schedulingTime) {
+		            this.playLater(this.scheduledTime);
+		            this.calcNextScheduledTime();
+		        }
+		    };
+		    Track.prototype.calcNextScheduledTime = function () {
+		        var pl = this.pattern.length;
+		        var pi = exports.playInterval * this.patternInterval;
+		        for (var i = 0; i < pl; i++) {
+		            this.scheduledTime += pi;
+		            var p = this.pattern[this.patternIndex];
+		            this.patternIndex++;
+		            if (this.patternIndex >= pl) {
+		                this.patternIndex = 0;
+		            }
+		            if (p) {
+		                break;
+		            }
+		        }
+		    };
+		    return Track;
+		}(Sound));
+		var Random = (function () {
+		    function Random() {
+		        this.setSeed();
+		        this.get01 = this.get01.bind(this);
+		        this.f = this.f.bind(this);
+		        this.i = this.i.bind(this);
+		    }
+		    Random.prototype.setSeed = function (v) {
+		        if (v === void 0) { v = -0x7fffffff; }
+		        if (v === -0x7fffffff) {
+		            v = Math.floor(Math.random() * 0x7fffffff);
+		        }
+		        this.x = v = 1812433253 * (v ^ (v >> 30));
+		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
+		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
+		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
+		        return this;
+		    };
+		    Random.prototype.f = function (minOrMax, max) {
+		        if (minOrMax === void 0) { minOrMax = null; }
+		        if (max === void 0) { max = null; }
+		        if (minOrMax == null) {
+		            return this.get01();
+		        }
+		        if (max == null) {
+		            return this.get01() * minOrMax;
+		        }
+		        return this.get01() * (max - minOrMax) + minOrMax;
+		    };
+		    Random.prototype.i = function (minOrMax, max) {
+		        if (minOrMax === void 0) { minOrMax = null; }
+		        if (max === void 0) { max = null; }
+		        return Math.floor(this.f(minOrMax, max + 1));
+		    };
+		    Random.prototype.sample = function (array) {
+		        return array[this.i(array.length - 1)];
+		    };
+		    Random.prototype.getInt = function () {
+		        var t = this.x ^ (this.x << 11);
+		        this.x = this.y;
+		        this.y = this.z;
+		        this.z = this.w;
+		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
+		        return this.w;
+		    };
+		    Random.prototype.get01 = function () {
+		        return this.getInt() / 0x7fffffff;
+		    };
+		    return Random;
+		}());
+	
+	
+	/***/ },
+	/* 4 */
+	/***/ function(module, exports) {
+	
+		// original ver.: https://github.com/loov/jsfx
+		// these functions/variables are added by @abagames
+		//  - module.exports
+		//  - Live._createBuffer
+		//  - Live._createEmptyBuffer
+		//  - Live._playBuffer
+		//  - setRandomFunc
+		//  - webkitAudioContext
+		var jsfx = {};
+		(function(jsfx){
+			'use strict';
+	
+			var chr = String.fromCharCode;
+			var TAU = +Math.PI*2;
+			var bitsPerSample = 16|0;
+			var numChannels = 1|0;
+			var sin = Math.sin;
+			var pow = Math.pow;
+			var abs = Math.abs;
+			var EPSILON = 0.000001;
+	
+			jsfx.SampleRate = 0|0;
+			jsfx.Sec = 0|0;
+	
+			jsfx.SetSampleRate = function(sampleRate){
+				jsfx.SampleRate = sampleRate|0;
+				jsfx.Sec = sampleRate|0;
+			};
+			jsfx.SetSampleRate(getDefaultSampleRate());
+	
+			// MAIN API
+	
+			// Creates a new Audio object based on the params
+			// params can be a params generating function or the actual parameters
+			jsfx.Sound = function(params){
+				var processor = new Processor(params, jsfx.DefaultModules);
+				var block = createFloatArray(processor.getSamplesLeft());
+				processor.generate(block);
+				return CreateAudio(block);
+			};
+	
+			// Same as Sounds, but avoids locking the browser for too long
+			// in case you have a large amount of sounds to generate
+			jsfx.Sounds = function(library, ondone, onprogress){
+				var audio  = {};
+				var player = {};
+				player._audio = audio;
+	
+				var toLoad = [];
+	
+				// create playing functions
+				map_object(library, function(_, name){
+					player[name] = function(){
+						if(typeof audio[name] !== "undefined"){
+							audio[name].currentTime = 0.0;
+							audio[name].play();
+						}
+					};
+					toLoad.push(name);
+				});
+	
+				var loaded = 0, total = toLoad.length;
+				function next(){
+					if(toLoad.length == 0){
+						ondone && ondone(sounds);
+						return;
+					}
+					var name = toLoad.shift();
+					audio[name] = jsfx.Sound(library[name]);
+					loaded++;
+					onprogress && onprogress(name, loaded, total);
+	
+					window.setTimeout(next, 30);
+				}
+				next();
+	
+				return player;
+			}
+	
+			// SoundsImmediate takes a named set of params, and generates multiple
+			// sound objects at once.
+			jsfx.SoundsImmediate = function(library){
+				var audio = {};
+				var player = {};
+				player._audio = audio;
+				map_object(library, function(params, name){
+					audio[name] = jsfx.Sound(params);
+					player[name] = function(){
+						if(typeof audio[name] !== "undefined"){
+							audio[name].currentTime = 0.0;
+							audio[name].play();
+						}
+					};
+				})
+				return player;
+			};
+	
+		  var AudioContext = window.AudioContext || window.webkitAudioContext;
+			if(typeof AudioContext !== "undefined"){
+				// Node creates a new AudioContext ScriptProcessor that outputs the
+				// sound. It will automatically disconnect, unless otherwise specified.
+				jsfx.Node = function(audioContext, params, modules, bufferSize, stayConnected){
+					var node = audioContext.createScriptProcessor(bufferSize, 0, 1);
+					var gen = new Processor(params, modules || jsfx.DefaultModules);
+					node.onaudioprocess = function(ev){
+						var block = ev.outputBuffer.getChannelData(0);
+						gen.generate(block);
+						if(!stayConnected && gen.finished){
+							// we need to do an async disconnect, otherwise Chrome may
+							// glitch
+							setTimeout(function(){ node.disconnect(); }, 30);
+						}
+					}
+					return node;
+				}
+	
+				// Live creates an managed AudioContext for playing.
+				// This is useful, when you want to use procedurally generated sounds.
+				jsfx.Live = function(library, modules, BufferSize){
+					//TODO: add limit for number of notes played at the same time
+					BufferSize = BufferSize || 2048;
+					var player = {};
+	
+					var context = new AudioContext();
+					var volume = context.createGain();
+					volume.connect(context.destination);
+	
+					player._context = context;
+					player._volume = volume;
+	
+					map_object(library, function(params, name){
+						player[name] =  function(){
+							var node = jsfx.Node(context, params, modules, BufferSize);
+							node.connect(volume);
+						};
+					});
+	
+					player._close = function(){
+						context.close();
+					};
+	
+					player._play = function(params){
+						var node = jsfx.Node(context, params, modules, BufferSize);
+						node.connect(volume);
+					};
+		      
+		      player._createBuffer = function(params) {
+		        var processor = new Processor(params, jsfx.DefaultModules);
+		        var block = createFloatArray(processor.getSamplesLeft());
+		        processor.generate(block);
+						return player._createBufferFromBlock(block);
+		      }
+		      
+		      player._createEmptyBuffer = function() {
+						return player._createBufferFromBlock([0]);
+		      }
+		      
+		      player._createBufferFromBlock = function(block) {
+		        var buffer = context.createBuffer(1, block.length, jsfx.SampleRate);
+		        var channelData = buffer.getChannelData(0);
+		        channelData.set(block);
+		        return buffer;
+		      }
+		      
+		      player._playBuffer = function(buffer, when) {
+		        var bufSrc = context.createBufferSource();
+		        bufSrc.buffer = buffer;
+		        bufSrc.start = bufSrc.start || bufSrc.noteOn;
+		        bufSrc.start(when);
+		        bufSrc.onended = function() {
+		          bufSrc.disconnect();
+		        };
+						bufSrc.connect(volume);
+		      }
+	
+					return player;
+				}
+			} else {
+				//jsfx.Live = jsfx.Sounds;
+				jsfx.Live = function(library, modules, BufferSize){
+					return null;
+				};
+			}
+	
+			// SOUND GENERATION
+			jsfx.Module = {};
+	
+			// generators
+			jsfx.G = {};
+	
+			var stage = jsfx.stage = {
+				PhaseSpeed    : 0,
+				PhaseSpeedMod : 10,
+				Generator     : 20,
+				SampleMod     : 30,
+				Volume        : 40
+			};
+			function byStage(a,b){ return a.stage - b.stage; }
+	
+			jsfx.InitDefaultParams = InitDefaultParams;
+			function InitDefaultParams(params, modules){
+				// setup modules
+				for(var i = 0; i < modules.length; i += 1){
+					var M = modules[i];
+					var P = params[M.name] || {};
+	
+					// add missing parameters
+					map_object(M.params, function(def, name){
+						if(typeof P[name] === 'undefined'){
+							P[name] = def.D;
+						}
+					});
+	
+					params[M.name] = P;
+				}
+			}
+	
+			// Generates a stateful sound effect processor
+			// params can be a function that creates a parameter set
+			jsfx.Processor = Processor;
+			function Processor(params, modules){
+				params = params || {};
+				modules = modules || jsfx.DefaultModules;
+	
+				if(typeof params === 'function'){
+					params = params();
+				} else {
+					params = JSON.parse(JSON.stringify(params))
+				}
+				this.finished = false;
+	
+				this.state = {
+					SampleRate: params.SampleRate || jsfx.SampleRate
+				};
+	
+				// sort modules
+				modules = modules.slice();
+				modules.sort(byStage)
+				this.modules = modules;
+	
+				// init missing params
+				InitDefaultParams(params, modules);
+	
+				// setup modules
+				for(var i = 0; i < this.modules.length; i += 1){
+					var M = this.modules[i];
+					this.modules[i].setup(this.state, params[M.name]);
+				}
+			}
+			Processor.prototype = {
+				//TODO: see whether this can be converted to a module
+				generate: function(block){
+					for(var i = 0|0; i < block.length; i += 1){
+						block[i] = 0;
+					}
+					if(this.finished){ return; }
+	
+					var $ = this.state,
+						N = block.length|0;
+					for(var i = 0; i < this.modules.length; i += 1){
+						var M = this.modules[i];
+						var n = M.process($, block.subarray(0,N))|0;
+						N = Math.min(N, n);
+					}
+					if(N < block.length){
+						this.finished = true;
+					}
+					for(var i = N; i < block.length; i++){
+						block[i] = 0;
+					}
+				},
+				getSamplesLeft: function(){
+					var samples = 0;
+					for(var i = 0; i < this.state.envelopes.length; i += 1){
+						samples += this.state.envelopes[i].N;
+					}
+					if(samples === 0){
+						samples = 3*this.state.SampleRate;
+					}
+					return samples;
+				}
+			};
+	
+			// Frequency
+			jsfx.Module.Frequency = {
+				name: 'Frequency',
+				params: {
+					Start: { L:30, H:1800, D:440  },
+	
+					Min: { L:30, H:1800, D:30    },
+					Max: { L:30, H:1800, D:1800  },
+	
+					Slide:      { L:-1, H:1, D:0 },
+					DeltaSlide: { L:-1, H:1, D:0 },
+	
+					RepeatSpeed:  { L:0, H: 3.0, D: 0 },
+	
+					ChangeAmount: { L:-12, H:12, D:0 },
+					ChangeSpeed : { L:  0, H:1,  D:0 }
+				},
+				stage: stage.PhaseSpeed,
+				setup: function($, P){
+					var SR = $.SampleRate;
+	
+					$.phaseParams = P;
+	
+					$.phaseSpeed    = P.Start * TAU / SR;
+					$.phaseSpeedMax = P.Max * TAU / SR;
+					$.phaseSpeedMin = P.Min * TAU / SR;
+	
+					$.phaseSpeedMin = Math.min($.phaseSpeedMin, $.phaseSpeed);
+					$.phaseSpeedMax = Math.max($.phaseSpeedMax, $.phaseSpeed);
+	
+					$.phaseSlide = 1.0 + pow(P.Slide, 3.0) * 64.0 / SR;
+					$.phaseDeltaSlide = pow(P.DeltaSlide, 3.0) / (SR * 1000);
+	
+					$.repeatTime = 0;
+					$.repeatLimit = Infinity;
+					if(P.RepeatSpeed > 0){
+						$.repeatLimit = P.RepeatSpeed * SR;
+					}
+	
+					$.arpeggiatorTime = 0;
+					$.arpeggiatorLimit = P.ChangeSpeed * SR;
+					if(P.ChangeAmount == 0){
+						$.arpeggiatorLimit = Infinity;
+					}
+					$.arpeggiatorMod = 1 + P.ChangeAmount / 12.0;
+				},
+				process: function($, block){
+					var speed = +$.phaseSpeed,
+						min   = +$.phaseSpeedMin,
+						max   = +$.phaseSpeedMax,
+						slide = +$.phaseSlide,
+						deltaSlide = +$.phaseDeltaSlide;
+	
+					var repeatTime  = $.repeatTime,
+						repeatLimit = $.repeatLimit;
+	
+					var arpTime  = $.arpeggiatorTime,
+						arpLimit = $.arpeggiatorLimit,
+						arpMod   = $.arpeggiatorMod;
+	
+					for(var i = 0; i < block.length; i++){
+						slide += deltaSlide;
+						speed *= slide;
+						speed = speed < min ? min : speed > max ? max : speed;
+	
+						if(repeatTime > repeatLimit){
+							this.setup($, $.phaseParams);
+							return i + this.process($, block.subarray(i)) - 1;
+						}
+						repeatTime++;
+	
+						if(arpTime > arpLimit){
+							speed *= arpMod;
+							arpTime = 0;
+							arpLimit = Infinity;
+						}
+						arpTime++;
+	
+						block[i] += speed;
+					}
+	
+					$.repeatTime = repeatTime;
+					$.arpeggiatorTime = arpTime;
+					$.arpeggiatorLimit = arpLimit;
+	
+					$.phaseSpeed = speed;
+					$.phaseSlide = slide;
+	
+					return block.length;
+				}
+			};
+	
+			// Vibrato
+			jsfx.Module.Vibrato = {
+				name: 'Vibrato',
+				params: {
+					Depth:      {L: 0, H:1, D:0},
+					DepthSlide: {L:-1, H:1, D:0},
+	
+					Frequency:      {L:  0.01, H:48, D:0},
+					FrequencySlide: {L: -1.00, H: 1, D:0}
+				},
+				stage: stage.PhaseSpeedMod,
+				setup: function($, P){
+					var SR = $.SampleRate;
+					$.vibratoPhase = 0;
+					$.vibratoDepth = P.Depth;
+					$.vibratoPhaseSpeed = P.Frequency * TAU / SR;
+	
+					$.vibratoPhaseSpeedSlide = 1.0 + pow(P.FrequencySlide, 3.0) * 3.0 / SR;
+					$.vibratoDepthSlide = P.DepthSlide / SR;
+				},
+				process: function($, block){
+					var phase = +$.vibratoPhase,
+						depth = +$.vibratoDepth,
+						speed = +$.vibratoPhaseSpeed,
+						slide = +$.vibratoPhaseSpeedSlide,
+						depthSlide = +$.vibratoDepthSlide;
+	
+					if((depth == 0) && (depthSlide <= 0)){
+						return block.length;
+					}
+	
+					for(var i = 0; i < block.length; i++){
+						phase += speed;
+						if(phase > TAU){phase -= TAU};
+						block[i] += block[i] * sin(phase) * depth;
+	
+						speed *= slide;
+						depth += depthSlide;
+						depth = clamp1(depth);
+					}
+	
+					$.vibratoPhase = phase;
+					$.vibratoDepth = depth;
+					$.vibratoPhaseSpeed = speed;
+					return block.length;
+				}
+			};
+	
+			// Generator
+			jsfx.Module.Generator = {
+				name: 'Generator',
+				params: {
+					// C = choose
+					Func: {C: jsfx.G, D:'square'},
+	
+					A: {L: 0, H: 1, D: 0},
+					B: {L: 0, H: 1, D: 0},
+	
+					ASlide: {L: -1, H: 1, D: 0},
+					BSlide: {L: -1, H: 1, D: 0}
+				},
+				stage: stage.Generator,
+				setup: function($, P){
+					$.generatorPhase = 0;
+	
+					if(typeof P.Func === 'string'){
+						$.generator = jsfx.G[P.Func];
+					} else {
+						$.generator = P.Func;
+					}
+					if(typeof $.generator === 'object'){
+						$.generator = $.generator.create();
+					}
+					assert(typeof $.generator === 'function', 'generator must be a function')
+	
+					$.generatorA = P.A;
+					$.generatorASlide = P.ASlide;
+					$.generatorB = P.B;
+					$.generatorBSlide = P.BSlide;
+				},
+				process: function($, block){
+					return $.generator($, block);
+				}
+			};
+	
+			// Karplus Strong algorithm for string sound
+			var GuitarBufferSize = 1 << 16;
+			jsfx.Module.Guitar = {
+				name: 'Guitar',
+				params: {
+					A: {L:0.0, H:1.0, D: 1},
+					B: {L:0.0, H:1.0, D: 1},
+					C: {L:0.0, H:1.0, D: 1},
+				},
+				stage: stage.Generator,
+				setup: function($, P){
+					$.guitarA = P.A;
+					$.guitarB = P.B;
+					$.guitarC = P.C;
+	
+					$.guitarBuffer = createFloatArray(GuitarBufferSize);
+					$.guitarHead = 0;
+					var B = $.guitarBuffer;
+					for(var i = 0; i < B.length; i++){
+						B[i] = random()*2 - 1;
+					}
+				},
+				process: function($, block){
+					var BS = GuitarBufferSize,
+						BM = BS - 1;
+	
+					var A = +$.guitarA, B = +$.guitarB, C = +$.guitarC;
+					var T = A + B + C;
+					var h = $.guitarHead;
+	
+					var buffer = $.guitarBuffer;
+					for(var i = 0; i < block.length; i++){
+						// buffer size
+						var n = (TAU / block[i])|0;
+						n = n > BS ? BS : n;
+	
+						// tail
+						var t = ((h - n) + BS) & BM;
+						buffer[h] =
+							(buffer[(t-0+BS)&BM]*A +
+							 buffer[(t-1+BS)&BM]*B +
+							 buffer[(t-2+BS)&BM]*C) / T;
+	
+						block[i] = buffer[h];
+						h = (h + 1) & BM;
+					}
+	
+					$.guitarHead = h;
+					return block.length;
+				}
+			}
+	
+			// Low/High-Pass Filter
+			jsfx.Module.Filter = {
+				name: 'Filter',
+				params: {
+					LP:          {L: 0, H:1, D:1},
+					LPSlide:     {L:-1, H:1, D:0},
+					LPResonance: {L: 0, H:1, D:0},
+					HP:          {L: 0, H:1, D:0},
+					HPSlide:     {L:-1, H:1, D:0}
+				},
+				stage: stage.SampleMod + 0,
+				setup: function($, P){
+					$.FilterEnabled = (P.HP > EPSILON) || (P.LP < 1 - EPSILON);
+	
+					$.LPEnabled = P.LP < 1 - EPSILON;
+					$.LP = pow(P.LP, 3.0) / 10;
+					$.LPSlide = 1.0 + P.LPSlide * 100 / $.SampleRate;
+					$.LPPos = 0;
+					$.LPPosSlide = 0;
+	
+					$.LPDamping = 5.0 / (1.0 + pow(P.LPResonance, 2) * 20) * (0.01 + P.LP);
+					$.LPDamping = 1.0 - Math.min($.LPDamping, 0.8);
+	
+					$.HP = pow(P.HP, 2.0) / 10;
+					$.HPPos = 0;
+					$.HPSlide = 1.0 + P.HPSlide * 100 / $.SampleRate;
+				},
+				enabled: function($){
+					return $.FilterEnabled;
+				},
+				process: function($, block){
+					if(!this.enabled($)){ return block.length; }
+	
+					var lp         = +$.LP;
+					var lpPos      = +$.LPPos;
+					var lpPosSlide = +$.LPPosSlide;
+					var lpSlide    = +$.LPSlide;
+					var lpDamping  = +$.LPDamping;
+					var lpEnabled  = +$.LPEnabled;
+	
+					var hp      = +$.HP;
+					var hpPos   = +$.HPPos;
+					var hpSlide = +$.HPSlide;
+	
+					for(var i = 0; i < block.length; i++){
+						if((hp > EPSILON) || (hp < -EPSILON)){
+							hp *= hpSlide;
+							hp = hp < EPSILON ? EPSILON: hp > 0.1 ? 0.1 : hp;
+						}
+	
+						var lpPos_ = lpPos;
+	
+						lp *= lpSlide;
+						lp = lp < 0 ? lp = 0 : lp > 0.1 ? 0.1 : lp;
+	
+						var sample = block[i];
+						if(lpEnabled){
+							lpPosSlide += (sample - lpPos) * lp;
+							lpPosSlide *= lpDamping;
+						} else {
+							lpPos = sample;
+							lpPosSlide = 0;
+						}
+						lpPos += lpPosSlide;
+	
+						hpPos += lpPos - lpPos_;
+						hpPos *= 1.0 - hp;
+	
+						block[i] = hpPos;
+					}
+	
+					$.LPPos = lpPos;
+					$.LPPosSlide = lpPosSlide;
+					$.LP = lp;
+					$.HP = hp;
+					$.HPPos = hpPos;
+	
+					return block.length;
+				}
+			};
+	
+			// Phaser Effect
+			var PhaserBufferSize = 1 << 10;
+			jsfx.Module.Phaser = {
+				name: 'Phaser',
+				params: {
+					Offset: {L:-1, H:1, D:0},
+					Sweep:  {L:-1, H:1, D:0}
+				},
+				stage: stage.SampleMod + 1,
+				setup: function($, P){
+					$.phaserBuffer = createFloatArray(PhaserBufferSize);
+					$.phaserPos  = 0;
+					$.phaserOffset = pow(P.Offset, 2.0) * (PhaserBufferSize - 4);
+					$.phaserOffsetSlide = pow(P.Sweep, 3.0) * 4000 / $.SampleRate;
+				},
+				enabled: function($){
+					return (abs($.phaserOffsetSlide) > EPSILON) ||
+						(abs($.phaserOffset) > EPSILON);
+				},
+				process: function($, block){
+					if(!this.enabled($)){ return block.length; }
+	
+					var BS = PhaserBufferSize,
+						BM = BS - 1;
+	
+					var buffer = $.phaserBuffer,
+						pos    = $.phaserPos|0,
+						offset = +$.phaserOffset,
+						offsetSlide = +$.phaserOffsetSlide;
+	
+					for(var i = 0; i < block.length; i++){
+						offset += offsetSlide;
+						//TODO: check whether this is correct
+						if(offset < 0){
+							offset = -offset;
+							offsetSlide = -offsetSlide;
+						}
+						if(offset > BM){
+							offset = BM;
+							offsetSlide = 0;
+						}
+	
+						buffer[pos] = block[i];
+						var p = (pos - (offset|0) + BS) & BM;
+						block[i] += buffer[p];
+	
+						pos = ((pos + 1) & BM)|0;
+					}
+	
+					$.phaserPos = pos;
+					$.phaserOffset = offset;
+					return block.length;
+				}
+			};
+	
+			// Volume dynamic control with Attack-Sustain-Decay
+			//   ATTACK  | 0              - Volume + Punch
+			//   SUSTAIN | Volume + Punch - Volume
+			//   DECAY   | Volume         - 0
+			jsfx.Module.Volume = {
+				name: 'Volume',
+				params: {
+					Master:  { L: 0, H: 1, D: 0.5 },
+					Attack:  { L: 0.001, H: 1, D: 0.01 },
+					Sustain: { L: 0, H: 2, D: 0.3 },
+					Punch:   { L: 0, H: 3, D: 1.0 },
+					Decay:   { L: 0.001, H: 2, D: 1.0 }
+				},
+				stage: stage.Volume,
+				setup: function($, P){
+					var SR = $.SampleRate;
+					var V = P.Master;
+					var VP = V * (1 + P.Punch);
+					$.envelopes = [
+						// S = start volume, E = end volume, N = duration in samples
+						{S: 0, E: V, N: (P.Attack  * SR)|0 }, // Attack
+						{S:VP, E: V, N: (P.Sustain * SR)|0 }, // Sustain
+						{S: V, E: 0, N: (P.Decay   * SR)|0 }  // Decay
+					];
+					// G = volume gradient
+					for(var i = 0; i < $.envelopes.length; i += 1){
+						var e = $.envelopes[i];
+						e.G = (e.E - e.S) / e.N;
+					}
+				},
+				process: function($, block){
+					var i = 0;
+					while(($.envelopes.length > 0) && (i < block.length)){
+						var E = $.envelopes[0];
+						var vol = E.S,
+							grad = E.G;
+	
+						var N = Math.min(block.length - i, E.N)|0;
+						var end = (i+N)|0;
+						for(; i < end; i += 1){
+							block[i] *= vol;
+							vol += grad;
+							vol = clamp(vol, 0, 10);
+						}
+						E.S = vol;
+						E.N -= N;
+						if(E.N <= 0){
+							$.envelopes.shift();
+						}
+					}
+					return i;
+				}
+			};
+	
+			// PRESETS
+	
+			jsfx.DefaultModules = [
+				jsfx.Module.Frequency,
+				jsfx.Module.Vibrato,
+				jsfx.Module.Generator,
+				jsfx.Module.Filter,
+				jsfx.Module.Phaser,
+				jsfx.Module.Volume
+			];
+			jsfx.DefaultModules.sort(byStage);
+	
+			jsfx.EmptyParams = EmptyParams;
+			function EmptyParams(){
+				return map_object(jsfx.Module, function(){ return {} });
+			}
+	
+			jsfx._RemoveEmptyParams = RemoveEmptyParams;
+			function RemoveEmptyParams(params){
+				for(var name in params){
+					if(Object_keys(params[name]).length == 0){
+						delete params[name];
+					}
+				}
+			};
+	
+			jsfx.Preset = {
+				Reset: function(){
+					return EmptyParams();
+				},
+				Coin: function(){
+					var p = EmptyParams();
+					p.Frequency.Start = runif(880, 660);
+					p.Volume.Sustain = runif(0.1);
+					p.Volume.Decay = runif(0.4, 0.1);
+					p.Volume.Punch = runif(0.3, 0.3);
+					if(runif() < 0.5){
+						p.Frequency.ChangeSpeed = runif(0.15, 0.1);
+						p.Frequency.ChangeAmount = runif(8, 4);
+					}
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Laser: function(){
+					var p = EmptyParams();
+					p.Generator.Func = rchoose(['square', 'saw', 'sine']);
+	
+					if(runif() < 0.33){
+						p.Frequency.Start = runif(880, 440);
+						p.Frequency.Min = runif(0.1);
+						p.Frequency.Slide = runif(0.3, -0.8);
+					} else {
+						p.Frequency.Start = runif(1200, 440);
+						p.Frequency.Min = p.Frequency.Start - runif(880, 440);
+						if(p.Frequency.Min < 110){ p.Frequency.Min = 110; }
+						p.Frequency.Slide = runif(0.3, -1);
+					}
+	
+					if(runif() < 0.5){
+						p.Generator.A = runif(0.5);
+						p.Generator.ASlide = runif(0.2);
+					} else {
+						p.Generator.A = runif(0.5, 0.4);
+						p.Generator.ASlide = runif(0.7);
+					}
+	
+					p.Volume.Sustain = runif(0.2, 0.1);
+					p.Volume.Decay   = runif(0.4);
+					if(runif() < 0.5){
+						p.Volume.Punch = runif(0.3);
+					}
+					if(runif() < 0.33){
+						p.Phaser.Offset = runif(0.2);
+						p.Phaser.Sweep = runif(0.2);
+					}
+					if(runif() < 0.5){
+						p.Filter.HP = runif(0.3);
+					}
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Explosion: function(){
+					var p = EmptyParams();
+					p.Generator.Func = 'noise';
+					if(runif() < 0.5){
+						p.Frequency.Start = runif(440, 40);
+						p.Frequency.Slide = runif(0.4, -0.1);
+					} else {
+						p.Frequency.Start = runif(1600, 220);
+						p.Frequency.Slide = runif(-0.2, -0.2);
+					}
+	
+					if(runif() < 0.2){ p.Frequency.Slide = 0; }
+					if(runif() < 0.3){ p.Frequency.RepeatSpeed = runif(0.5, 0.3); }
+	
+					p.Volume.Sustain = runif(0.3, 0.1);
+					p.Volume.Decay   = runif(0.5);
+					p.Volume.Punch   = runif(0.6, 0.2);
+	
+					if(runif() < 0.5){
+						p.Phaser.Offset = runif(0.9, -0.3);
+						p.Phaser.Sweep  = runif(-0.3);
+					}
+	
+					if(runif() < 0.33){
+						p.Frequency.ChangeSpeed = runif(0.3, 0.6);
+						p.Frequency.ChangeAmount = runif(24, -12);
+					}
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Powerup: function(){
+					var p = EmptyParams();
+					if(runif() < 0.5){
+						p.Generator.Func = 'saw';
+					} else {
+						p.Generator.A = runif(0.6);
+					}
+	
+					p.Frequency.Start = runif(220, 440);
+					if(runif() < 0.5){
+						p.Frequency.Slide = runif(0.5, 0.2);
+						p.Frequency.RepeatSpeed = runif(0.4, 0.4);
+					} else {
+						p.Frequency.Slide = runif(0.2, 0.05);
+						if(runif() < 0.5){
+							p.Vibrato.Depth = runif(0.6, 0.1);
+							p.Vibrato.Frequency = runif(30, 10);
+						}
+					}
+	
+					p.Volume.Sustain = runif(0.4);
+					p.Volume.Decay = runif(0.4, 0.1);
+	
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Hit: function(){
+					var p = EmptyParams();
+					p.Generator.Func = rchoose(['square', 'saw', 'noise']);
+					p.Generator.A = runif(0.6);
+					p.Generator.ASlide = runif(1, -0.5);
+	
+					p.Frequency.Start = runif(880, 220);
+					p.Frequency.Slide = -runif(0.4, 0.3);
+	
+					p.Volume.Sustain = runif(0.1);
+					p.Volume.Decay = runif(0.2, 0.1);
+	
+					if(runif() < 0.5){
+						p.Filter.HP = runif(0.3);
+					}
+	
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Jump: function(){
+					var p = EmptyParams();
+					p.Generator.Func = 'square';
+					p.Generator.A = runif(0.6);
+	
+					p.Frequency.Start = runif(330, 330);
+					p.Frequency.Slide = runif(0.4, 0.2);
+	
+					p.Volume.Sustain = runif(0.3, 0.1);
+					p.Volume.Decay = runif(0.2, 0.1);
+	
+					if(runif() < 0.5){
+						p.Filter.HP = runif(0.3);
+					}
+					if(runif() < 0.3){
+						p.Filter.LP = runif(-0.6, 1);
+					}
+	
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Select: function(){
+					var p = EmptyParams();
+					p.Generator.Func = rchoose(['square', 'saw']);
+					p.Generator.A = runif(0.6);
+	
+					p.Frequency.Start = runif(660, 220);
+	
+					p.Volume.Sustain = runif(0.1, 0.1);
+					p.Volume.Decay   = runif(0.2);
+	
+					p.Filter.HP = 0.2;
+					RemoveEmptyParams(p);
+					return p;
+				},
+				Lucky: function(){
+					var p = EmptyParams();
+					map_object(p, function(out, moduleName){
+						var defs = jsfx.Module[moduleName].params;
+						map_object(defs, function(def, name){
+							if(def.C){
+								var values = Object_keys(def.C);
+								out[name] = values[(values.length * random()) | 0];
+							} else {
+								out[name] = random() * (def.H - def.L) + def.L;
+							}
+						});
+					});
+					p.Volume.Master = 0.4;
+					p.Filter = {}; // disable filter, as it usually will clip everything
+					RemoveEmptyParams(p);
+					return p;
+				}
+			};
+	
+			// GENERATORS
+	
+			// uniform noise
+			jsfx.G.unoise = newGenerator("sample = Math.random();");
+			// sine wave
+			jsfx.G.sine = newGenerator("sample = Math.sin(phase);");
+			// saw wave
+			jsfx.G.saw = newGenerator("sample = 2*(phase/TAU - ((phase/TAU + 0.5)|0));");
+			// triangle wave
+			jsfx.G.triangle = newGenerator("sample = Math.abs(4 * ((phase/TAU - 0.25)%1) - 2) - 1;");
+			// square wave
+			jsfx.G.square = newGenerator("var s = Math.sin(phase); sample = s > A ? 1.0 : s < A ? -1.0 : A;");
+			// simple synth
+			jsfx.G.synth = newGenerator("sample = Math.sin(phase) + .5*Math.sin(phase/2) + .3*Math.sin(phase/4);");
+	
+			// STATEFUL
+			var __noiseLast = 0;
+			jsfx.G.noise = newGenerator("if(phase % TAU < 4){__noiseLast = Math.random() * 2 - 1;} sample = __noiseLast;");
+	
+			// Karplus-Strong string
+			jsfx.G.string = {
+				create: function(){
+					var BS = 1 << 16;
+					var BM = BS-1;
+	
+					var buffer = createFloatArray(BS);
+					for(var i = 0; i < buffer.length; i++){
+						buffer[i] = random()*2-1;
+					}
+	
+					var head = 0;
+					return function($, block){
+						var TAU = Math.PI * 2;
+						var A = +$.generatorA, ASlide = +$.generatorASlide,
+							B = +$.generatorB, BSlide = +$.generatorBSlide;
+						var buf = buffer;
+	
+						for(var i = 0; i < block.length; i++){
+							var phaseSpeed = block[i];
+							var n = (TAU/phaseSpeed)|0;
+							A += ASlide; B += BSlide;
+							A = A < 0 ? 0 : A > 1 ? 1 : A;
+							B = B < 0 ? 0 : B > 1 ? 1 : B;
+	
+							var t = ((head - n) + BS) & BM;
+							var sample = (
+								buf[(t-0+BS)&BM]*1 +
+								buf[(t-1+BS)&BM]*A +
+								buf[(t-2+BS)&BM]*B) / (1+A+B);
+	
+							buf[head] = sample;
+							block[i] = buf[head];
+							head = (head + 1) & BM;
+						}
+	
+						$.generatorA = A;
+						$.generatorB = B;
+						return block.length;
+					}
+				}
+			};
+	
+			// Generates samples using given frequency and generator
+			function newGenerator(line){
+				return new Function("$", "block", "" +
+					"var TAU = Math.PI * 2;\n" +
+					"var sample;\n" +
+					"var phase = +$.generatorPhase,\n"+
+					"	A = +$.generatorA, ASlide = +$.generatorASlide,\n"+
+					"	B = +$.generatorB, BSlide = +$.generatorBSlide;\n"+
+					"\n"+
+					"for(var i = 0; i < block.length; i++){\n"+
+					"	var phaseSpeed = block[i];\n"+
+					"	phase += phaseSpeed;\n"+
+					"	if(phase > TAU){ phase -= TAU };\n"+
+					"	A += ASlide; B += BSlide;\n"+
+					"   A = A < 0 ? 0 : A > 1 ? 1 : A;\n"+
+					"   B = B < 0 ? 0 : B > 1 ? 1 : B;\n"+
+					line +
+					"	block[i] = sample;\n"+
+					"}\n"+
+					"\n"+
+					"$.generatorPhase = phase;\n"+
+					"$.generatorA = A;\n"+
+					"$.generatorB = B;\n"+
+					"return block.length;\n" +
+				"");
+			}
+	
+			// WAVE SUPPORT
+	
+			// Creates an Audio element from audio data [-1.0 .. 1.0]
+			jsfx.CreateAudio = CreateAudio;
+			function CreateAudio(data){
+				if(typeof Float32Array !== "undefined"){
+					assert(data instanceof Float32Array, 'data must be an Float32Array');
+				}
+	
+				var blockAlign = numChannels * bitsPerSample >> 3;
+				var byteRate = jsfx.SampleRate * blockAlign;
+	
+				var output = createByteArray(8 + 36 + data.length * 2);
+				var p = 0;
+	
+				// emits string to output
+				function S(value){
+					for(var i = 0; i < value.length; i += 1){
+						output[p] = value.charCodeAt(i); p++;
+					}
+				}
+	
+				// emits integer value to output
+				function V(value, nBytes){
+					if(nBytes <= 0){ return; }
+					output[p] = value & 0xFF; p++;
+					V(value >> 8, nBytes - 1);
+				}
+	
+				S('RIFF'); V(36 + data.length * 2, 4);
+	
+				S('WAVEfmt '); V(16, 4); V(1, 2);
+				V(numChannels, 2); V(jsfx.SampleRate, 4);
+				V(byteRate, 4); V(blockAlign, 2); V(bitsPerSample, 2);
+	
+				S('data'); V(data.length * 2, 4);
+				CopyFToU8(output.subarray(p), data);
+	
+				return new Audio('data:audio/wav;base64,' + U8ToB64(output));
+			};
+	
+			jsfx.DownloadAsFile = function(audio){
+				assert(audio instanceof Audio, 'input must be an Audio object');
+				document.location.href = audio.src;
+			};
+	
+			// HELPERS
+			jsfx.Util = {};
+	
+			// Copies array of Floats to a Uint8Array with 16bits per sample
+			jsfx.Util.CopyFToU8 = CopyFToU8;
+			function CopyFToU8(into, floats){
+				assert(into.length/2 == floats.length,
+					'the target buffer must be twice as large as the iinput');
+	
+				var k = 0;
+				for(var i = 0; i < floats.length; i++){
+					var v = +floats[i];
+					var	a = (v * 0x7FFF)|0;
+					a = a < -0x8000 ? -0x8000 : 0x7FFF < a ? 0x7FFF : a;
+					a += a < 0 ? 0x10000 : 0;
+					into[k] = a & 0xFF; k++;
+					into[k] = a >> 8; k++;
+				}
+			}
+	
+			function U8ToB64(data){
+				var CHUNK = 0x8000;
+				var result = '';
+				for(var start = 0; start < data.length; start += CHUNK){
+					var end = Math.min(start + CHUNK, data.length);
+					result += String.fromCharCode.apply(null, data.subarray(start, end));
+				}
+				return btoa(result);
+			}
+	
+			// uses AudioContext sampleRate or 44100;
+			function getDefaultSampleRate(){
+				if(typeof AudioContext !== 'undefined'){
+					return (new AudioContext()).sampleRate;
+				}
+				return 44100;
+			}
+	
+			// for checking pre/post conditions
+			function assert(condition, message){
+				if(!condition){ throw new Error(message); }
+			}
+	
+			function clamp(v, min, max){
+				v = +v; min = +min; max = +max;
+				if(v < min){ return +min; }
+				if(v > max){ return +max; }
+				return +v;
+			}
+	
+			function clamp1(v){
+				v = +v;
+				if(v < +0.0){ return +0.0; }
+				if(v > +1.0){ return +1.0; }
+				return +v;
+			}
+	
+			function map_object(obj, fn){
+				var r = {};
+				for(var name in obj){
+					if(obj.hasOwnProperty(name)){
+						r[name] = fn(obj[name], name);
+					}
+				}
+				return r;
+			}
+	
+			// uniform random
+			function runif(scale, offset){
+				var a = random();
+		        if(scale !== undefined)
+		            a *= scale;
+		        if(offset !== undefined)
+		            a += offset;
+		        return a;
+			}
+	
+			function rchoose(gens){
+				return gens[(gens.length*random())|0];
+			}
+	
+			function Object_keys(obj){
+				var r = [];
+				for(var name in obj){ r.push(name); }
+				return r;
+			}
+	
+			jsfx._createFloatArray = createFloatArray;
+			function createFloatArray(N){
+				if(typeof Float32Array === "undefined") {
+					var r = new Array(N);
+					for(var i = 0; i < r.length; i++){
+						r[i] = 0.0;
+					}
+				}
+				return new Float32Array(N);
+			}
+	
+			function createByteArray(N){
+				if(typeof Uint8Array === "undefined") {
+					var r = new Array(N);
+					for(var i = 0; i < r.length; i++){
+						r[i] = 0|0;
+					}
+				}
+				return new Uint8Array(N);
+			}
+			
+			var randomFunc = Math.random;
+			jsfx.setRandomFunc = function(func) {
+				randomFunc = func;
+			}
+			
+			function random() {
+				return randomFunc();
+			}
+		})(jsfx = {});
+		module.exports = jsfx;
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["gcc"] = factory();
+		else
+			root["gcc"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(1);
+	
+	
+	/***/ },
+	/* 1 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		"use strict";
+		var GIFEncoder = __webpack_require__(2);
+		var options = {
+		    scale: 0.5,
+		    durationSec: 3,
+		    keyCode: 67,
+		    capturingFps: 20,
+		    appFps: 60,
+		    isAppendingImgElement: true
+		};
+		var contextsNum;
+		var contexts;
+		var isCaptured;
+		var index = 0;
+		var frameCount = 0;
+		var image = new Image();
+		function capture(element) {
+		    frameCount++;
+		    var capturePerFrame = options.appFps / options.capturingFps;
+		    if (frameCount < capturePerFrame) {
+		        return;
+		    }
+		    frameCount -= capturePerFrame;
+		    if (!contexts) {
+		        begin(element);
+		    }
+		    contexts[index].drawImage(element, 0, 0);
+		    isCaptured[index] = true;
+		    index++;
+		    if (index >= contextsNum) {
+		        index = 0;
+		    }
+		}
+		exports.capture = capture;
+		function captureSvg(svgElm) {
+		    var capturePerFrame = options.appFps / options.capturingFps;
+		    if (frameCount + 1 < capturePerFrame) {
+		        frameCount++;
+		        return;
+		    }
+		    var svgXml = new XMLSerializer().serializeToString(svgElm);
+		    image.src = "data:image/svg+xml;base64," + btoa(svgXml);
+		    capture(image);
+		}
+		exports.captureSvg = captureSvg;
+		function begin(element) {
+		    contextsNum = options.durationSec * options.capturingFps;
+		    contexts = times(contextsNum, function () {
+		        var cvs = document.createElement('canvas');
+		        cvs.width = element.width * options.scale;
+		        cvs.height = element.height * options.scale;
+		        var ctx = cvs.getContext('2d');
+		        ctx.scale(options.scale, options.scale);
+		        return ctx;
+		    });
+		    isCaptured = times(contextsNum, function () { return false; });
+		    document.addEventListener('keydown', function (e) {
+		        if (e.keyCode == options.keyCode) {
+		            end();
+		        }
+		    });
+		}
+		function end() {
+		    var encoder = new GIFEncoder();
+		    encoder.setRepeat(0);
+		    encoder.setDelay(1000 / options.capturingFps);
+		    encoder.start();
+		    var idx = index;
+		    times(contextsNum, function () {
+		        if (isCaptured[idx]) {
+		            encoder.addFrame(contexts[idx]);
+		        }
+		        idx++;
+		        if (idx >= contextsNum) {
+		            idx = 0;
+		        }
+		    });
+		    encoder.finish();
+		    var binaryGif = encoder.stream().getData();
+		    var imgElement = document.createElement('img');
+		    imgElement.src = 'data:image/gif;base64,' + encode64(binaryGif);
+		    if (options.isAppendingImgElement) {
+		        document.getElementsByTagName('body')[0].appendChild(imgElement);
+		    }
+		    return imgElement;
+		}
+		exports.end = end;
+		function times(n, func) {
+		    var result = [];
+		    for (var i = 0; i < n; i++) {
+		        result.push(func());
+		    }
+		    return result;
+		}
+		function setOptions(_options) {
+		    for (var attr in _options) {
+		        options[attr] = _options[attr];
+		    }
+		}
+		exports.setOptions = setOptions;
+		// https://github.com/antimatter15/jsgif/blob/master/b64.js
+		function encode64(input) {
+		    var output = "", i = 0, l = input.length, key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+		    while (i < l) {
+		        chr1 = input.charCodeAt(i++);
+		        chr2 = input.charCodeAt(i++);
+		        chr3 = input.charCodeAt(i++);
+		        enc1 = chr1 >> 2;
+		        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+		        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+		        enc4 = chr3 & 63;
+		        if (isNaN(chr2))
+		            enc3 = enc4 = 64;
+		        else if (isNaN(chr3))
+		            enc4 = 64;
+		        output = output + key.charAt(enc1) + key.charAt(enc2) + key.charAt(enc3) + key.charAt(enc4);
+		    }
+		    return output;
+		}
+	
+	
+	/***/ },
+	/* 2 */
+	/***/ function(module, exports) {
+	
+		/**
+		 * This class lets you encode animated GIF files
+		 * Base class :  http://www.java2s.com/Code/Java/2D-Graphics-GUI/AnimatedGifEncoder.htm
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		GIFEncoder = function () {
+	
+		  for (var i = 0, chr = {}; i < 256; i++)
+		    chr[i] = String.fromCharCode(i);
+	
+		  function ByteArray() {
+		    this.bin = [];
+		  }
+	
+		  ByteArray.prototype.getData = function () {
+		    for (var v = '', l = this.bin.length, i = 0; i < l; i++)
+		      v += chr[this.bin[i]];
+		    return v;
+		  };
+	
+		  ByteArray.prototype.writeByte = function (val) {
+		    this.bin.push(val);
+		  };
+	
+		  ByteArray.prototype.writeUTFBytes = function (string) {
+		    for (var l = string.length, i = 0; i < l; i++)
+		      this.writeByte(string.charCodeAt(i));
+		  };
+	
+		  ByteArray.prototype.writeBytes = function (array, offset, length) {
+		    for (var l = length || array.length, i = offset || 0; i < l; i++)
+		      this.writeByte(array[i]);
+		  };
+	
+		  var exports = {};
+		  var width; // image size
+		  var height;
+		  var transparent = null; // transparent color if given
+		  var transIndex; // transparent index in color table
+		  var repeat = -1; // no repeat
+		  var delay = 0; // frame delay (hundredths)
+		  var started = false; // ready to output frames
+		  var out;
+		  var image; // current frame
+		  var pixels; // BGR byte array from frame
+		  var indexedPixels; // converted frame indexed to palette
+		  var colorDepth; // number of bit planes
+		  var colorTab; // RGB palette
+		  var usedEntry = []; // active palette entries
+		  var palSize = 7; // color table size (bits-1)
+		  var dispose = -1; // disposal code (-1 = use default)
+		  var closeStream = false; // close stream when finished
+		  var firstFrame = true;
+		  var sizeSet = false; // if false, get size from first frame
+		  var sample = 10; // default sample interval for quantizer
+		  var comment = "Generated by jsgif (https://github.com/antimatter15/jsgif/)"; // default comment for generated gif
+	
+			/**
+			 * Sets the delay time between each frame, or changes it for subsequent frames
+			 * (applies to last frame added)
+			 * int delay time in milliseconds
+			 * @param ms
+			 */
+	
+		  var setDelay = exports.setDelay = function setDelay(ms) {
+		    delay = Math.round(ms / 10);
+		  };
+	
+			/**
+			 * Sets the GIF frame disposal code for the last added frame and any
+			 *
+			 * subsequent frames. Default is 0 if no transparent color has been set,
+			 * otherwise 2.
+			 * @param code
+			 * int disposal code.
+			 */
+	
+		  var setDispose = exports.setDispose = function setDispose(code) {
+		    if (code >= 0) dispose = code;
+		  };
+	
+			/**
+			 * Sets the number of times the set of GIF frames should be played. Default is
+			 * 1; 0 means play indefinitely. Must be invoked before the first image is
+			 * added.
+			 *
+			 * @param iter
+			 * int number of iterations.
+			 * @return
+			 */
+	
+		  var setRepeat = exports.setRepeat = function setRepeat(iter) {
+		    if (iter >= 0) repeat = iter;
+		  };
+	
+			/**
+			 * Sets the transparent color for the last added frame and any subsequent
+			 * frames. Since all colors are subject to modification in the quantization
+			 * process, the color in the final palette for each frame closest to the given
+			 * color becomes the transparent color for that frame. May be set to null to
+			 * indicate no transparent color.
+			 * @param
+			 * Color to be treated as transparent on display.
+			 */
+	
+		  var setTransparent = exports.setTransparent = function setTransparent(c) {
+		    transparent = c;
+		  };
+	
+	
+			/**
+			 * Sets the comment for the block comment
+			 * @param
+			 * string to be insterted as comment
+			 */
+	
+		  var setComment = exports.setComment = function setComment(c) {
+		    comment = c;
+		  };
+	
+	
+	
+			/**
+			 * The addFrame method takes an incoming BitmapData object to create each frames
+			 * @param
+			 * BitmapData object to be treated as a GIF's frame
+			 */
+	
+		  var addFrame = exports.addFrame = function addFrame(im, is_imageData) {
+	
+		    if ((im === null) || !started || out === null) {
+		      throw new Error("Please call start method before calling addFrame");
+		    }
+	
+		    var ok = true;
+	
+		    try {
+		      if (!is_imageData) {
+		        image = im.getImageData(0, 0, im.canvas.width, im.canvas.height).data;
+		        if (!sizeSet) setSize(im.canvas.width, im.canvas.height);
+		      } else {
+		        image = im;
+		      }
+		      getImagePixels(); // convert to correct format if necessary
+		      analyzePixels(); // build color table & map pixels
+	
+		      if (firstFrame) {
+		        writeLSD(); // logical screen descriptior
+		        writePalette(); // global color table
+		        if (repeat >= 0) {
+		          // use NS app extension to indicate reps
+		          writeNetscapeExt();
+		        }
+		      }
+	
+		      writeGraphicCtrlExt(); // write graphic control extension
+		      if (comment !== '') {
+		        writeCommentExt(); // write comment extension
+		      }
+		      writeImageDesc(); // image descriptor
+		      if (!firstFrame) writePalette(); // local color table
+		      writePixels(); // encode and write pixel data
+		      firstFrame = false;
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return ok;
+		  };
+	
+			/**
+			 * Adds final trailer to the GIF stream, if you don't call the finish method
+			 * the GIF stream will not be valid.
+			 */
+	
+		  var finish = exports.finish = function finish() {
+	
+		    if (!started) return false;
+	
+		    var ok = true;
+		    started = false;
+	
+		    try {
+		      out.writeByte(0x3b); // gif trailer
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return ok;
+		  };
+	
+			/**
+			 * Resets some members so that a new stream can be started.
+			 * This method is actually called by the start method
+			 */
+	
+		  var reset = function reset() {
+	
+		    // reset for subsequent use
+		    transIndex = 0;
+		    image = null;
+		    pixels = null;
+		    indexedPixels = null;
+		    colorTab = null;
+		    closeStream = false;
+		    firstFrame = true;
+		  };
+	
+			/**
+			 * * Sets frame rate in frames per second. Equivalent to
+			 * <code>setDelay(1000/fps)</code>.
+			 * @param fps
+			 * float frame rate (frames per second)
+			 */
+	
+		  var setFrameRate = exports.setFrameRate = function setFrameRate(fps) {
+		    if (fps != 0xf) delay = Math.round(100 / fps);
+		  };
+	
+			/**
+			 * Sets quality of color quantization (conversion of images to the maximum 256
+			 * colors allowed by the GIF specification). Lower values (minimum = 1)
+			 * produce better colors, but slow processing significantly. 10 is the
+			 * default, and produces good color mapping at reasonable speeds. Values
+			 * greater than 20 do not yield significant improvements in speed.
+			 * @param quality
+			 * int greater than 0.
+			 * @return
+			 */
+	
+		  var setQuality = exports.setQuality = function setQuality(quality) {
+		    if (quality < 1) quality = 1;
+		    sample = quality;
+		  };
+	
+			/**
+			 * Sets the GIF frame size. The default size is the size of the first frame
+			 * added if this method is not invoked.
+			 * @param w
+			 * int frame width.
+			 * @param h
+			 * int frame width.
+			 */
+	
+		  var setSize = exports.setSize = function setSize(w, h) {
+	
+		    if (started && !firstFrame) return;
+		    width = w;
+		    height = h;
+		    if (width < 1) width = 320;
+		    if (height < 1) height = 240;
+		    sizeSet = true;
+		  };
+	
+			/**
+			 * Initiates GIF file creation on the given stream.
+			 * @param os
+			 * OutputStream on which GIF images are written.
+			 * @return false if initial write failed.
+			 */
+	
+		  var start = exports.start = function start() {
+	
+		    reset();
+		    var ok = true;
+		    closeStream = false;
+		    out = new ByteArray();
+		    try {
+		      out.writeUTFBytes("GIF89a"); // header
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return started = ok;
+		  };
+	
+		  var cont = exports.cont = function cont() {
+	
+		    reset();
+		    var ok = true;
+		    closeStream = false;
+		    out = new ByteArray();
+	
+		    return started = ok;
+		  };
+	
+			/**
+			 * Analyzes image colors and creates color map.
+			 */
+	
+		  var analyzePixels = function analyzePixels() {
+	
+		    var len = pixels.length;
+		    var nPix = len / 3;
+		    indexedPixels = [];
+		    var nq = new NeuQuant(pixels, len, sample);
+	
+		    // initialize quantizer
+		    colorTab = nq.process(); // create reduced palette
+	
+		    // map image pixels to new palette
+		    var k = 0;
+		    for (var j = 0; j < nPix; j++) {
+		      var index = nq.map(pixels[k++] & 0xff, pixels[k++] & 0xff, pixels[k++] & 0xff);
+		      usedEntry[index] = true;
+		      indexedPixels[j] = index;
+		    }
+	
+		    pixels = null;
+		    colorDepth = 8;
+		    palSize = 7;
+	
+		    // get closest match to transparent color if specified
+		    if (transparent !== null) {
+		      transIndex = findClosest(transparent);
+		    }
+		  };
+	
+			/**
+			 * Returns index of palette color closest to c
+			 */
+	
+		  var findClosest = function findClosest(c) {
+	
+		    if (colorTab === null) return -1;
+		    var r = (c & 0xFF0000) >> 16;
+		    var g = (c & 0x00FF00) >> 8;
+		    var b = (c & 0x0000FF);
+		    var minpos = 0;
+		    var dmin = 256 * 256 * 256;
+		    var len = colorTab.length;
+	
+		    for (var i = 0; i < len;) {
+		      var dr = r - (colorTab[i++] & 0xff);
+		      var dg = g - (colorTab[i++] & 0xff);
+		      var db = b - (colorTab[i] & 0xff);
+		      var d = dr * dr + dg * dg + db * db;
+		      var index = i / 3;
+		      if (usedEntry[index] && (d < dmin)) {
+		        dmin = d;
+		        minpos = index;
+		      }
+		      i++;
+		    }
+		    return minpos;
+		  };
+	
+			/**
+			 * Extracts image pixels into byte array "pixels
+			 */
+	
+		  var getImagePixels = function getImagePixels() {
+		    var w = width;
+		    var h = height;
+		    pixels = [];
+		    var data = image;
+		    var count = 0;
+	
+		    for (var i = 0; i < h; i++) {
+	
+		      for (var j = 0; j < w; j++) {
+	
+		        var b = (i * w * 4) + j * 4;
+		        pixels[count++] = data[b];
+		        pixels[count++] = data[b + 1];
+		        pixels[count++] = data[b + 2];
+	
+		      }
+	
+		    }
+		  };
+	
+			/**
+			 * Writes Graphic Control Extension
+			 */
+	
+		  var writeGraphicCtrlExt = function writeGraphicCtrlExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xf9); // GCE label
+		    out.writeByte(4); // data block size
+		    var transp;
+		    var disp;
+		    if (transparent === null) {
+		      transp = 0;
+		      disp = 0; // dispose = no action
+		    } else {
+		      transp = 1;
+		      disp = 2; // force clear if using transparent color
+		    }
+		    if (dispose >= 0) {
+		      disp = dispose & 7; // user override
+		    }
+		    disp <<= 2;
+		    // packed fields
+		    out.writeByte(0 | // 1:3 reserved
+		      disp | // 4:6 disposal
+		      0 | // 7 user input - 0 = none
+		      transp); // 8 transparency flag
+	
+		    WriteShort(delay); // delay x 1/100 sec
+		    out.writeByte(transIndex); // transparent color index
+		    out.writeByte(0); // block terminator
+		  };
+	
+			/**
+			 * Writes Comment Extention
+			 */
+	
+		  var writeCommentExt = function writeCommentExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xfe); // comment label
+		    out.writeByte(comment.length); // Block Size (s)
+		    out.writeUTFBytes(comment);
+		    out.writeByte(0); // block terminator
+		  };
+	
+	
+			/**
+			 * Writes Image Descriptor
+			 */
+	
+		  var writeImageDesc = function writeImageDesc() {
+	
+		    out.writeByte(0x2c); // image separator
+		    WriteShort(0); // image position x,y = 0,0
+		    WriteShort(0);
+		    WriteShort(width); // image size
+		    WriteShort(height);
+	
+		    // packed fields
+		    if (firstFrame) {
+		      // no LCT - GCT is used for first (or only) frame
+		      out.writeByte(0);
+		    } else {
+		      // specify normal LCT
+		      out.writeByte(0x80 | // 1 local color table 1=yes
+		        0 | // 2 interlace - 0=no
+		        0 | // 3 sorted - 0=no
+		        0 | // 4-5 reserved
+		        palSize); // 6-8 size of color table
+		    }
+		  };
+	
+			/**
+			 * Writes Logical Screen Descriptor
+			 */
+	
+		  var writeLSD = function writeLSD() {
+	
+		    // logical screen size
+		    WriteShort(width);
+		    WriteShort(height);
+		    // packed fields
+		    out.writeByte((0x80 | // 1 : global color table flag = 1 (gct used)
+		      0x70 | // 2-4 : color resolution = 7
+		      0x00 | // 5 : gct sort flag = 0
+		      palSize)); // 6-8 : gct size
+	
+		    out.writeByte(0); // background color index
+		    out.writeByte(0); // pixel aspect ratio - assume 1:1
+		  };
+	
+			/**
+			 * Writes Netscape application extension to define repeat count.
+			 */
+	
+		  var writeNetscapeExt = function writeNetscapeExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xff); // app extension label
+		    out.writeByte(11); // block size
+		    out.writeUTFBytes("NETSCAPE" + "2.0"); // app id + auth code
+		    out.writeByte(3); // sub-block size
+		    out.writeByte(1); // loop sub-block id
+		    WriteShort(repeat); // loop count (extra iterations, 0=repeat forever)
+		    out.writeByte(0); // block terminator
+		  };
+	
+			/**
+			 * Writes color table
+			 */
+	
+		  var writePalette = function writePalette() {
+		    out.writeBytes(colorTab);
+		    var n = (3 * 256) - colorTab.length;
+		    for (var i = 0; i < n; i++) out.writeByte(0);
+		  };
+	
+		  var WriteShort = function WriteShort(pValue) {
+		    out.writeByte(pValue & 0xFF);
+		    out.writeByte((pValue >> 8) & 0xFF);
+		  };
+	
+			/**
+			 * Encodes and writes pixel data
+			 */
+	
+		  var writePixels = function writePixels() {
+		    var myencoder = new LZWEncoder(width, height, indexedPixels, colorDepth);
+		    myencoder.encode(out);
+		  };
+	
+			/**
+			 * Retrieves the GIF stream
+			 */
+	
+		  var stream = exports.stream = function stream() {
+		    return out;
+		  };
+	
+		  var setProperties = exports.setProperties = function setProperties(has_start, is_first) {
+		    started = has_start;
+		    firstFrame = is_first;
+		  };
+	
+		  return exports;
+	
+		};
+	
+		module.exports = GIFEncoder;
+	
+		/**
+		 * This class handles LZW encoding
+		 * Adapted from Jef Poskanzer's Java port by way of J. M. G. Elliott.
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		LZWEncoder = function () {
+	
+		  var exports = {};
+		  var EOF = -1;
+		  var imgW;
+		  var imgH;
+		  var pixAry;
+		  var initCodeSize;
+		  var remaining;
+		  var curPixel;
+	
+		  // GIFCOMPR.C - GIF Image compression routines
+		  // Lempel-Ziv compression based on 'compress'. GIF modifications by
+		  // David Rowley (mgardi@watdcsu.waterloo.edu)
+		  // General DEFINEs
+	
+		  var BITS = 12;
+		  var HSIZE = 5003; // 80% occupancy
+	
+		  // GIF Image compression - modified 'compress'
+		  // Based on: compress.c - File compression ala IEEE Computer, June 1984.
+		  // By Authors: Spencer W. Thomas (decvax!harpo!utah-cs!utah-gr!thomas)
+		  // Jim McKie (decvax!mcvax!jim)
+		  // Steve Davies (decvax!vax135!petsd!peora!srd)
+		  // Ken Turkowski (decvax!decwrl!turtlevax!ken)
+		  // James A. Woods (decvax!ihnp4!ames!jaw)
+		  // Joe Orost (decvax!vax135!petsd!joe)
+	
+		  var n_bits; // number of bits/code
+		  var maxbits = BITS; // user settable max # bits/code
+		  var maxcode; // maximum code, given n_bits
+		  var maxmaxcode = 1 << BITS; // should NEVER generate this code
+		  var htab = [];
+		  var codetab = [];
+		  var hsize = HSIZE; // for dynamic table sizing
+		  var free_ent = 0; // first unused entry
+	
+		  // block compression parameters -- after all codes are used up,
+		  // and compression rate changes, start over.
+	
+		  var clear_flg = false;
+	
+		  // Algorithm: use open addressing double hashing (no chaining) on the
+		  // prefix code / next character combination. We do a variant of Knuth's
+		  // algorithm D (vol. 3, sec. 6.4) along with G. Knott's relatively-prime
+		  // secondary probe. Here, the modular division first probe is gives way
+		  // to a faster exclusive-or manipulation. Also do block compression with
+		  // an adaptive reset, whereby the code table is cleared when the compression
+		  // ratio decreases, but after the table fills. The variable-length output
+		  // codes are re-sized at this point, and a special CLEAR code is generated
+		  // for the decompressor. Late addition: construct the table according to
+		  // file size for noticeable speed improvement on small files. Please direct
+		  // questions about this implementation to ames!jaw.
+	
+		  var g_init_bits;
+		  var ClearCode;
+		  var EOFCode;
+	
+		  // output
+		  // Output the given code.
+		  // Inputs:
+		  // code: A n_bits-bit integer. If == -1, then EOF. This assumes
+		  // that n_bits =< wordsize - 1.
+		  // Outputs:
+		  // Outputs code to the file.
+		  // Assumptions:
+		  // Chars are 8 bits long.
+		  // Algorithm:
+		  // Maintain a BITS character long buffer (so that 8 codes will
+		  // fit in it exactly). Use the VAX insv instruction to insert each
+		  // code in turn. When the buffer fills up empty it and start over.
+	
+		  var cur_accum = 0;
+		  var cur_bits = 0;
+		  var masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
+	
+		  // Number of characters so far in this 'packet'
+		  var a_count;
+	
+		  // Define the storage for the packet accumulator
+		  var accum = [];
+	
+		  var LZWEncoder = exports.LZWEncoder = function LZWEncoder(width, height, pixels, color_depth) {
+		    imgW = width;
+		    imgH = height;
+		    pixAry = pixels;
+		    initCodeSize = Math.max(2, color_depth);
+		  };
+	
+		  // Add a character to the end of the current packet, and if it is 254
+		  // characters, flush the packet to disk.
+		  var char_out = function char_out(c, outs) {
+		    accum[a_count++] = c;
+		    if (a_count >= 254) flush_char(outs);
+		  };
+	
+		  // Clear out the hash table
+		  // table clear for block compress
+	
+		  var cl_block = function cl_block(outs) {
+		    cl_hash(hsize);
+		    free_ent = ClearCode + 2;
+		    clear_flg = true;
+		    output(ClearCode, outs);
+		  };
+	
+		  // reset code table
+		  var cl_hash = function cl_hash(hsize) {
+		    for (var i = 0; i < hsize; ++i) htab[i] = -1;
+		  };
+	
+		  var compress = exports.compress = function compress(init_bits, outs) {
+	
+		    var fcode;
+		    var i; /* = 0 */
+		    var c;
+		    var ent;
+		    var disp;
+		    var hsize_reg;
+		    var hshift;
+	
+		    // Set up the globals: g_init_bits - initial number of bits
+		    g_init_bits = init_bits;
+	
+		    // Set up the necessary values
+		    clear_flg = false;
+		    n_bits = g_init_bits;
+		    maxcode = MAXCODE(n_bits);
+	
+		    ClearCode = 1 << (init_bits - 1);
+		    EOFCode = ClearCode + 1;
+		    free_ent = ClearCode + 2;
+	
+		    a_count = 0; // clear packet
+	
+		    ent = nextPixel();
+	
+		    hshift = 0;
+		    for (fcode = hsize; fcode < 65536; fcode *= 2)
+		      ++hshift;
+		    hshift = 8 - hshift; // set hash code range bound
+	
+		    hsize_reg = hsize;
+		    cl_hash(hsize_reg); // clear hash table
+	
+		    output(ClearCode, outs);
+	
+		    outer_loop: while ((c = nextPixel()) != EOF) {
+		      fcode = (c << maxbits) + ent;
+		      i = (c << hshift) ^ ent; // xor hashing
+	
+		      if (htab[i] == fcode) {
+		        ent = codetab[i];
+		        continue;
+		      }
+	
+		      else if (htab[i] >= 0) { // non-empty slot
+	
+		        disp = hsize_reg - i; // secondary hash (after G. Knott)
+		        if (i === 0) disp = 1;
+	
+		        do {
+		          if ((i -= disp) < 0)
+		            i += hsize_reg;
+	
+		          if (htab[i] == fcode) {
+		            ent = codetab[i];
+		            continue outer_loop;
+		          }
+		        } while (htab[i] >= 0);
+		      }
+	
+		      output(ent, outs);
+		      ent = c;
+		      if (free_ent < maxmaxcode) {
+		        codetab[i] = free_ent++; // code -> hashtable
+		        htab[i] = fcode;
+		      }
+		      else cl_block(outs);
+		    }
+	
+		    // Put out the final code.
+		    output(ent, outs);
+		    output(EOFCode, outs);
+		  };
+	
+		  // ----------------------------------------------------------------------------
+		  var encode = exports.encode = function encode(os) {
+		    os.writeByte(initCodeSize); // write "initial code size" byte
+		    remaining = imgW * imgH; // reset navigation variables
+		    curPixel = 0;
+		    compress(initCodeSize + 1, os); // compress and write the pixel data
+		    os.writeByte(0); // write block terminator
+		  };
+	
+		  // Flush the packet to disk, and reset the accumulator
+		  var flush_char = function flush_char(outs) {
+		    if (a_count > 0) {
+		      outs.writeByte(a_count);
+		      outs.writeBytes(accum, 0, a_count);
+		      a_count = 0;
+		    }
+		  };
+	
+		  var MAXCODE = function MAXCODE(n_bits) {
+		    return (1 << n_bits) - 1;
+		  };
+	
+		  // ----------------------------------------------------------------------------
+		  // Return the next pixel from the image
+		  // ----------------------------------------------------------------------------
+	
+		  var nextPixel = function nextPixel() {
+		    if (remaining === 0) return EOF;
+		    --remaining;
+		    var pix = pixAry[curPixel++];
+		    return pix & 0xff;
+		  };
+	
+		  var output = function output(code, outs) {
+	
+		    cur_accum &= masks[cur_bits];
+	
+		    if (cur_bits > 0) cur_accum |= (code << cur_bits);
+		    else cur_accum = code;
+	
+		    cur_bits += n_bits;
+	
+		    while (cur_bits >= 8) {
+		      char_out((cur_accum & 0xff), outs);
+		      cur_accum >>= 8;
+		      cur_bits -= 8;
+		    }
+	
+		    // If the next entry is going to be too big for the code size,
+		    // then increase it, if possible.
+	
+		    if (free_ent > maxcode || clear_flg) {
+	
+		      if (clear_flg) {
+	
+		        maxcode = MAXCODE(n_bits = g_init_bits);
+		        clear_flg = false;
+	
+		      } else {
+	
+		        ++n_bits;
+		        if (n_bits == maxbits) maxcode = maxmaxcode;
+		        else maxcode = MAXCODE(n_bits);
+		      }
+		    }
+	
+		    if (code == EOFCode) {
+	
+		      // At EOF, write the rest of the buffer.
+		      while (cur_bits > 0) {
+		        char_out((cur_accum & 0xff), outs);
+		        cur_accum >>= 8;
+		        cur_bits -= 8;
+		      }
+	
+		      flush_char(outs);
+		    }
+		  };
+	
+		  LZWEncoder.apply(this, arguments);
+		  return exports;
+		};
+	
+		/*
+		 * NeuQuant Neural-Net Quantization Algorithm
+		 * ------------------------------------------
+		 *
+		 * Copyright (c) 1994 Anthony Dekker
+		 *
+		 * NEUQUANT Neural-Net quantization algorithm by Anthony Dekker, 1994. See
+		 * "Kohonen neural networks for optimal colour quantization" in "Network:
+		 * Computation in Neural Systems" Vol. 5 (1994) pp 351-367. for a discussion of
+		 * the algorithm.
+		 *
+		 * Any party obtaining a copy of these files from the author, directly or
+		 * indirectly, is granted, free of charge, a full and unrestricted irrevocable,
+		 * world-wide, paid up, royalty-free, nonexclusive right and license to deal in
+		 * this software and documentation files (the "Software"), including without
+		 * limitation the rights to use, copy, modify, merge, publish, distribute,
+		 * sublicense, and/or sell copies of the Software, and to permit persons who
+		 * receive copies from any such party to do so, with the only requirement being
+		 * that this copyright notice remain intact.
+		 */
+	
+		/*
+		 * This class handles Neural-Net quantization algorithm
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		NeuQuant = function () {
+	
+		  var exports = {};
+		  var netsize = 256; /* number of colours used */
+	
+		  /* four primes near 500 - assume no image has a length so large */
+		  /* that it is divisible by all four primes */
+	
+		  var prime1 = 499;
+		  var prime2 = 491;
+		  var prime3 = 487;
+		  var prime4 = 503;
+		  var minpicturebytes = (3 * prime4); /* minimum size for input image */
+	
+			/*
+			 * Program Skeleton ---------------- [select samplefac in range 1..30] [read
+			 * image from input file] pic = (unsigned char*) malloc(3*width*height);
+			 * initnet(pic,3*width*height,samplefac); learn(); unbiasnet(); [write output
+			 * image header, using writecolourmap(f)] inxbuild(); write output image using
+			 * inxsearch(b,g,r)
+			 */
+	
+			/*
+			 * Network Definitions -------------------
+			 */
+	
+		  var maxnetpos = (netsize - 1);
+		  var netbiasshift = 4; /* bias for colour values */
+		  var ncycles = 100; /* no. of learning cycles */
+	
+		  /* defs for freq and bias */
+		  var intbiasshift = 16; /* bias for fractions */
+		  var intbias = (1 << intbiasshift);
+		  var gammashift = 10; /* gamma = 1024 */
+		  var gamma = (1 << gammashift);
+		  var betashift = 10;
+		  var beta = (intbias >> betashift); /* beta = 1/1024 */
+		  var betagamma = (intbias << (gammashift - betashift));
+	
+		  /* defs for decreasing radius factor */
+		  var initrad = (netsize >> 3); /* for 256 cols, radius starts */
+		  var radiusbiasshift = 6; /* at 32.0 biased by 6 bits */
+		  var radiusbias = (1 << radiusbiasshift);
+		  var initradius = (initrad * radiusbias); /* and decreases by a */
+		  var radiusdec = 30; /* factor of 1/30 each cycle */
+	
+		  /* defs for decreasing alpha factor */
+		  var alphabiasshift = 10; /* alpha starts at 1.0 */
+		  var initalpha = (1 << alphabiasshift);
+		  var alphadec; /* biased by 10 bits */
+	
+		  /* radbias and alpharadbias used for radpower calculation */
+		  var radbiasshift = 8;
+		  var radbias = (1 << radbiasshift);
+		  var alpharadbshift = (alphabiasshift + radbiasshift);
+		  var alpharadbias = (1 << alpharadbshift);
+	
+			/*
+			 * Types and Global Variables --------------------------
+			 */
+	
+		  var thepicture; /* the input image itself */
+		  var lengthcount; /* lengthcount = H*W*3 */
+		  var samplefac; /* sampling factor 1..30 */
+	
+		  // typedef int pixel[4]; /* BGRc */
+		  var network; /* the network itself - [netsize][4] */
+		  var netindex = [];
+	
+		  /* for network lookup - really 256 */
+		  var bias = [];
+	
+		  /* bias and freq arrays for learning */
+		  var freq = [];
+		  var radpower = [];
+	
+		  var NeuQuant = exports.NeuQuant = function NeuQuant(thepic, len, sample) {
+	
+		    var i;
+		    var p;
+	
+		    thepicture = thepic;
+		    lengthcount = len;
+		    samplefac = sample;
+	
+		    network = new Array(netsize);
+	
+		    for (i = 0; i < netsize; i++) {
+	
+		      network[i] = new Array(4);
+		      p = network[i];
+		      p[0] = p[1] = p[2] = (i << (netbiasshift + 8)) / netsize;
+		      freq[i] = intbias / netsize; /* 1/netsize */
+		      bias[i] = 0;
+		    }
+		  };
+	
+		  var colorMap = function colorMap() {
+	
+		    var map = [];
+		    var index = new Array(netsize);
+	
+		    for (var i = 0; i < netsize; i++)
+		      index[network[i][3]] = i;
+	
+		    var k = 0;
+		    for (var l = 0; l < netsize; l++) {
+		      var j = index[l];
+		      map[k++] = (network[j][0]);
+		      map[k++] = (network[j][1]);
+		      map[k++] = (network[j][2]);
+		    }
+	
+		    return map;
+		  };
+	
+			/*
+			 * Insertion sort of network and building of netindex[0..255] (to do after
+			 * unbias)
+			 * -------------------------------------------------------------------------------
+			 */
+	
+		  var inxbuild = function inxbuild() {
+	
+		    var i;
+		    var j;
+		    var smallpos;
+		    var smallval;
+		    var p;
+		    var q;
+		    var previouscol;
+		    var startpos;
+	
+		    previouscol = 0;
+		    startpos = 0;
+		    for (i = 0; i < netsize; i++) {
+	
+		      p = network[i];
+		      smallpos = i;
+		      smallval = p[1]; /* index on g */
+	
+		      /* find smallest in i..netsize-1 */
+		      for (j = i + 1; j < netsize; j++) {
+	
+		        q = network[j];
+		        if (q[1] < smallval) { /* index on g */
+		          smallpos = j;
+		          smallval = q[1]; /* index on g */
+		        }
+		      }
+		      q = network[smallpos];
+	
+		      /* swap p (i) and q (smallpos) entries */
+		      if (i != smallpos) {
+		        j = q[0];
+		        q[0] = p[0];
+		        p[0] = j;
+		        j = q[1];
+		        q[1] = p[1];
+		        p[1] = j;
+		        j = q[2];
+		        q[2] = p[2];
+		        p[2] = j;
+		        j = q[3];
+		        q[3] = p[3];
+		        p[3] = j;
+		      }
+	
+		      /* smallval entry is now in position i */
+	
+		      if (smallval != previouscol) {
+	
+		        netindex[previouscol] = (startpos + i) >> 1;
+	
+		        for (j = previouscol + 1; j < smallval; j++) netindex[j] = i;
+	
+		        previouscol = smallval;
+		        startpos = i;
+		      }
+		    }
+	
+		    netindex[previouscol] = (startpos + maxnetpos) >> 1;
+		    for (j = previouscol + 1; j < 256; j++) netindex[j] = maxnetpos; /* really 256 */
+		  };
+	
+			/*
+			 * Main Learning Loop ------------------
+			 */
+	
+		  var learn = function learn() {
+	
+		    var i;
+		    var j;
+		    var b;
+		    var g;
+		    var r;
+		    var radius;
+		    var rad;
+		    var alpha;
+		    var step;
+		    var delta;
+		    var samplepixels;
+		    var p;
+		    var pix;
+		    var lim;
+	
+		    if (lengthcount < minpicturebytes) samplefac = 1;
+	
+		    alphadec = 30 + ((samplefac - 1) / 3);
+		    p = thepicture;
+		    pix = 0;
+		    lim = lengthcount;
+		    samplepixels = lengthcount / (3 * samplefac);
+		    delta = (samplepixels / ncycles) | 0;
+		    alpha = initalpha;
+		    radius = initradius;
+	
+		    rad = radius >> radiusbiasshift;
+		    if (rad <= 1) rad = 0;
+	
+		    for (i = 0; i < rad; i++) radpower[i] = alpha * (((rad * rad - i * i) * radbias) / (rad * rad));
+	
+		    if (lengthcount < minpicturebytes) step = 3;
+	
+		    else if ((lengthcount % prime1) !== 0) step = 3 * prime1;
+	
+		    else {
+	
+		      if ((lengthcount % prime2) !== 0) step = 3 * prime2;
+		      else {
+		        if ((lengthcount % prime3) !== 0) step = 3 * prime3;
+		        else step = 3 * prime4;
+		      }
+		    }
+	
+		    i = 0;
+		    while (i < samplepixels) {
+	
+		      b = (p[pix + 0] & 0xff) << netbiasshift;
+		      g = (p[pix + 1] & 0xff) << netbiasshift;
+		      r = (p[pix + 2] & 0xff) << netbiasshift;
+		      j = contest(b, g, r);
+	
+		      altersingle(alpha, j, b, g, r);
+		      if (rad !== 0) alterneigh(rad, j, b, g, r); /* alter neighbours */
+	
+		      pix += step;
+		      if (pix >= lim) pix -= lengthcount;
+	
+		      i++;
+	
+		      if (delta === 0) delta = 1;
+	
+		      if (i % delta === 0) {
+		        alpha -= alpha / alphadec;
+		        radius -= radius / radiusdec;
+		        rad = radius >> radiusbiasshift;
+	
+		        if (rad <= 1) rad = 0;
+	
+		        for (j = 0; j < rad; j++) radpower[j] = alpha * (((rad * rad - j * j) * radbias) / (rad * rad));
+		      }
+		    }
+		  };
+	
+			/*
+			 ** Search for BGR values 0..255 (after net is unbiased) and return colour
+			 * index
+			 * ----------------------------------------------------------------------------
+			 */
+	
+		  var map = exports.map = function map(b, g, r) {
+	
+		    var i;
+		    var j;
+		    var dist;
+		    var a;
+		    var bestd;
+		    var p;
+		    var best;
+	
+		    bestd = 1000; /* biggest possible dist is 256*3 */
+		    best = -1;
+		    i = netindex[g]; /* index on g */
+		    j = i - 1; /* start at netindex[g] and work outwards */
+	
+		    while ((i < netsize) || (j >= 0)) {
+	
+		      if (i < netsize) {
+		        p = network[i];
+		        dist = p[1] - g; /* inx key */
+	
+		        if (dist >= bestd) i = netsize; /* stop iter */
+	
+		        else {
+	
+		          i++;
+		          if (dist < 0) dist = -dist;
+		          a = p[0] - b;
+		          if (a < 0) a = -a;
+		          dist += a;
+	
+		          if (dist < bestd) {
+		            a = p[2] - r;
+		            if (a < 0) a = -a;
+		            dist += a;
+	
+		            if (dist < bestd) {
+		              bestd = dist;
+		              best = p[3];
+		            }
+		          }
+		        }
+		      }
+	
+		      if (j >= 0) {
+	
+		        p = network[j];
+		        dist = g - p[1]; /* inx key - reverse dif */
+	
+		        if (dist >= bestd) j = -1; /* stop iter */
+	
+		        else {
+	
+		          j--;
+		          if (dist < 0) dist = -dist;
+		          a = p[0] - b;
+		          if (a < 0) a = -a;
+		          dist += a;
+	
+		          if (dist < bestd) {
+		            a = p[2] - r;
+		            if (a < 0) a = -a;
+		            dist += a;
+		            if (dist < bestd) {
+		              bestd = dist;
+		              best = p[3];
+		            }
+		          }
+		        }
+		      }
+		    }
+	
+		    return (best);
+		  };
+	
+		  var process = exports.process = function process() {
+		    learn();
+		    unbiasnet();
+		    inxbuild();
+		    return colorMap();
+		  };
+	
+			/*
+			 * Unbias network to give byte values 0..255 and record position i to prepare
+			 * for sort
+			 * -----------------------------------------------------------------------------------
+			 */
+	
+		  var unbiasnet = function unbiasnet() {
+	
+		    var i;
+		    var j;
+	
+		    for (i = 0; i < netsize; i++) {
+		      network[i][0] >>= netbiasshift;
+		      network[i][1] >>= netbiasshift;
+		      network[i][2] >>= netbiasshift;
+		      network[i][3] = i; /* record colour no */
+		    }
+		  };
+	
+			/*
+			 * Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in
+			 * radpower[|i-j|]
+			 * ---------------------------------------------------------------------------------
+			 */
+	
+		  var alterneigh = function alterneigh(rad, i, b, g, r) {
+	
+		    var j;
+		    var k;
+		    var lo;
+		    var hi;
+		    var a;
+		    var m;
+		    var p;
+	
+		    lo = i - rad;
+		    if (lo < -1) lo = -1;
+	
+		    hi = i + rad;
+		    if (hi > netsize) hi = netsize;
+	
+		    j = i + 1;
+		    k = i - 1;
+		    m = 1;
+	
+		    while ((j < hi) || (k > lo)) {
+		      a = radpower[m++];
+	
+		      if (j < hi) {
+		        p = network[j++];
+	
+		        try {
+		          p[0] -= (a * (p[0] - b)) / alpharadbias;
+		          p[1] -= (a * (p[1] - g)) / alpharadbias;
+		          p[2] -= (a * (p[2] - r)) / alpharadbias;
+		        } catch (e) { } // prevents 1.3 miscompilation
+		      }
+	
+		      if (k > lo) {
+		        p = network[k--];
+	
+		        try {
+		          p[0] -= (a * (p[0] - b)) / alpharadbias;
+		          p[1] -= (a * (p[1] - g)) / alpharadbias;
+		          p[2] -= (a * (p[2] - r)) / alpharadbias;
+		        } catch (e) { }
+		      }
+		    }
+		  };
+	
+			/*
+			 * Move neuron i towards biased (b,g,r) by factor alpha
+			 * ----------------------------------------------------
+			 */
+	
+		  var altersingle = function altersingle(alpha, i, b, g, r) {
+	
+		    /* alter hit neuron */
+		    var n = network[i];
+		    n[0] -= (alpha * (n[0] - b)) / initalpha;
+		    n[1] -= (alpha * (n[1] - g)) / initalpha;
+		    n[2] -= (alpha * (n[2] - r)) / initalpha;
+		  };
+	
+			/*
+			 * Search for biased BGR values ----------------------------
+			 */
+	
+		  var contest = function contest(b, g, r) {
+	
+		    /* finds closest neuron (min dist) and updates freq */
+		    /* finds best neuron (min dist-bias) and returns position */
+		    /* for frequently chosen neurons, freq[i] is high and bias[i] is negative */
+		    /* bias[i] = gamma*((1/netsize)-freq[i]) */
+	
+		    var i;
+		    var dist;
+		    var a;
+		    var biasdist;
+		    var betafreq;
+		    var bestpos;
+		    var bestbiaspos;
+		    var bestd;
+		    var bestbiasd;
+		    var n;
+	
+		    bestd = ~(1 << 31);
+		    bestbiasd = bestd;
+		    bestpos = -1;
+		    bestbiaspos = bestpos;
+	
+		    for (i = 0; i < netsize; i++) {
+		      n = network[i];
+		      dist = n[0] - b;
+		      if (dist < 0) dist = -dist;
+		      a = n[1] - g;
+		      if (a < 0) a = -a;
+		      dist += a;
+		      a = n[2] - r;
+		      if (a < 0) a = -a;
+		      dist += a;
+	
+		      if (dist < bestd) {
+		        bestd = dist;
+		        bestpos = i;
+		      }
+	
+		      biasdist = dist - ((bias[i]) >> (intbiasshift - netbiasshift));
+	
+		      if (biasdist < bestbiasd) {
+		        bestbiasd = biasdist;
+		        bestbiaspos = i;
+		      }
+	
+		      betafreq = (freq[i] >> betashift);
+		      freq[i] -= betafreq;
+		      bias[i] += (betafreq << gammashift);
+		    }
+	
+		    freq[bestpos] += beta;
+		    bias[bestpos] -= betagamma;
+		    return (bestbiaspos);
+		  };
+	
+		  NeuQuant.apply(this, arguments);
+		  return exports;
+		};
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	var pag = __webpack_require__(4);
+	var ppe = __webpack_require__(8);
+	var sss = __webpack_require__(5);
+	var ir = __webpack_require__(9);
+	var actor_1 = __webpack_require__(10);
+	var random_1 = __webpack_require__(13);
+	var ui = __webpack_require__(14);
+	exports.ui = ui;
+	var screen = __webpack_require__(11);
+	exports.screen = screen;
+	var text = __webpack_require__(12);
+	exports.text = text;
+	var debug = __webpack_require__(15);
+	exports.debug = debug;
+	var actor_2 = __webpack_require__(10);
+	exports.Actor = actor_2.default;
+	var random_2 = __webpack_require__(13);
+	exports.Random = random_2.default;
+	exports.p5 = __webpack_require__(16);
+	exports.ticks = 0;
+	exports.score = 0;
+	var options = {
+	    isShowingScore: true,
+	    isShowingTitle: true
+	};
+	var initFunc;
+	var initGameFunc;
+	var updateFunc;
+	var postUpdateFunc;
+	var onSeedChangedFunc;
+	var actorGeneratorFunc;
+	var getReplayStatusFunc;
+	var setReplayStatusFunc;
+	var title = 'N/A';
+	var titleCont;
+	var isDebugEnabled = false;
+	(function (Scene) {
+	    Scene[Scene["title"] = 0] = "title";
+	    Scene[Scene["game"] = 1] = "game";
+	    Scene[Scene["gameover"] = 2] = "gameover";
+	    Scene[Scene["replay"] = 3] = "replay";
+	})(exports.Scene || (exports.Scene = {}));
+	var Scene = exports.Scene;
+	;
+	function init(_initFunc, _initGameFunc, _updateFunc, _postUpdateFunc) {
+	    if (_postUpdateFunc === void 0) { _postUpdateFunc = null; }
+	    initFunc = _initFunc;
+	    initGameFunc = _initGameFunc;
+	    updateFunc = _updateFunc;
+	    postUpdateFunc = _postUpdateFunc;
+	    exports.random = new random_1.default();
+	    sss.init();
+	    new exports.p5(function (_p) {
+	        exports.p = _p;
+	        exports.createVector = exports.p.createVector;
+	        exports.p.setup = setup;
+	        exports.p.draw = draw;
+	    });
+	}
+	exports.init = init;
+	function setTitle(_title, _titleCont) {
+	    if (_titleCont === void 0) { _titleCont = null; }
+	    title = _title;
+	    titleCont = _titleCont;
+	}
+	exports.setTitle = setTitle;
+	function setReplayFuncs(_actorGeneratorFunc, _getReplayStatusFunc, _setReplayStatusFunc) {
+	    if (_getReplayStatusFunc === void 0) { _getReplayStatusFunc = null; }
+	    if (_setReplayStatusFunc === void 0) { _setReplayStatusFunc = null; }
+	    actorGeneratorFunc = _actorGeneratorFunc;
+	    getReplayStatusFunc = _getReplayStatusFunc;
+	    setReplayStatusFunc = _setReplayStatusFunc;
+	}
+	exports.setReplayFuncs = setReplayFuncs;
+	function enableDebug(_onSeedChangedFunc) {
+	    if (_onSeedChangedFunc === void 0) { _onSeedChangedFunc = null; }
+	    onSeedChangedFunc = _onSeedChangedFunc;
+	    debug.initSeedUi(setSeeds);
+	    debug.enableShowingErrors();
+	    isDebugEnabled = true;
+	}
+	exports.enableDebug = enableDebug;
+	function setOptions(_options) {
+	    for (var attr in _options) {
+	        options[attr] = _options[attr];
+	    }
+	}
+	exports.setOptions = setOptions;
+	function setSeeds(seed) {
+	    pag.setSeed(seed);
+	    ppe.setSeed(seed);
+	    ppe.reset();
+	    sss.reset();
+	    sss.setSeed(seed);
+	    if (exports.scene === Scene.game) {
+	        sss.playBgm();
+	    }
+	    if (onSeedChangedFunc != null) {
+	        onSeedChangedFunc();
+	    }
+	}
+	exports.setSeeds = setSeeds;
+	function endGame() {
+	    if (exports.scene === Scene.gameover) {
+	        return;
+	    }
+	    var isReplay = exports.scene === Scene.replay;
+	    exports.scene = Scene.gameover;
+	    exports.ticks = 0;
+	    sss.stopBgm();
+	    if (!isReplay) {
+	        ir.saveAsUrl();
+	    }
+	}
+	exports.endGame = endGame;
+	function addScore(v) {
+	    if (exports.scene === Scene.game || exports.scene === Scene.replay) {
+	        exports.score += v;
+	    }
+	}
+	exports.addScore = addScore;
+	function setup() {
+	    actor_1.default.init();
+	    initFunc();
+	    ui.init(screen.canvas, screen.size);
+	    if (isDebugEnabled || !options.isShowingTitle) {
+	        beginGame();
+	    }
+	    else {
+	        if (ir.loadFromUrl() === true) {
+	            beginReplay();
+	        }
+	        else {
+	            beginTitle();
+	            initGameFunc();
+	        }
+	    }
+	}
+	function beginGame() {
+	    exports.scene = Scene.game;
+	    exports.score = exports.ticks = 0;
+	    sss.playBgm();
+	    ir.startRecord();
+	    actor_1.default.clear();
+	    initGameFunc();
+	}
+	function beginTitle() {
+	    exports.scene = Scene.title;
+	    exports.ticks = 0;
+	}
+	function beginReplay() {
+	    var status = ir.startReplay();
+	    if (status !== false) {
+	        exports.scene = Scene.replay;
+	        actor_1.default.clear();
+	        initGameFunc();
+	        setStatus(status);
+	    }
+	}
+	function draw() {
+	    screen.clear();
+	    handleScene();
+	    sss.update();
+	    updateFunc();
+	    ppe.update();
+	    actor_1.default.update();
+	    if (postUpdateFunc != null) {
+	        postUpdateFunc();
+	    }
+	    if (options.isShowingScore) {
+	        text.draw("" + exports.score, 1, 1);
+	    }
+	    drawSceneText();
+	    exports.ticks++;
+	}
+	function handleScene() {
+	    if (exports.scene !== Scene.game && ui.isPressed) {
+	        beginGame();
+	    }
+	    ui.resetPressed();
+	    if (exports.scene === Scene.game) {
+	        ir.record(getStatus(), ui.getReplayEvents());
+	    }
+	    if (exports.scene === Scene.gameover && exports.ticks === 60) {
+	        beginTitle();
+	    }
+	    if (exports.scene === Scene.title && exports.ticks === 120) {
+	        beginReplay();
+	    }
+	    if (exports.scene === Scene.replay) {
+	        var events = ir.getEvents();
+	        if (events !== false) {
+	            ui.setReplayEvents(events);
+	        }
+	        else {
+	            beginTitle();
+	        }
+	    }
+	}
+	function drawSceneText() {
+	    switch (exports.scene) {
+	        case Scene.title:
+	            if (titleCont == null) {
+	                text.draw(title, screen.size.x / 2, screen.size.y * 0.48, true);
+	            }
+	            else {
+	                text.draw(title, screen.size.x / 2, screen.size.y * 0.4, true);
+	                text.draw(titleCont, screen.size.x / 2, screen.size.y * 0.48, true);
+	            }
+	            break;
+	        case Scene.gameover:
+	            text.draw('GAME OVER', screen.size.x / 2, screen.size.y * 0.45, true);
+	            break;
+	        case Scene.replay:
+	            text.draw('REPLAY', screen.size.x / 2, screen.size.y * 0.55, true);
+	            break;
+	    }
+	}
+	function getStatus() {
+	    var status = [exports.ticks, exports.score, exports.random.getStatus(), actor_1.default.getReplayStatus()];
+	    if (getReplayStatusFunc != null) {
+	        status.push(getReplayStatusFunc());
+	    }
+	    return status;
+	}
+	function setStatus(status) {
+	    actor_1.default.setReplayStatus(status[3], actorGeneratorFunc);
+	    if (setReplayStatusFunc != null) {
+	        setReplayStatusFunc(status[4]);
+	    }
+	    exports.ticks = status[0];
+	    exports.score = status[1];
+	    exports.random.setStatus(status[2]);
+	}
+
+
+/***/ },
+/* 8 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["ppe"] = factory();
+		else
+			root["ppe"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(1);
+	
+	
+	/***/ },
+	/* 1 */
+	/***/ function(module, exports) {
+	
+		"use strict";
+		exports.options = {
+		    scaleRatio: 1,
+		    canvas: null
+		};
+		var emitters = {};
+		var seed = 0;
+		var context;
+		// emit the particle.
+		// specify the type with the first character of the patternName
+		// (e: explosion, m: muzzle, s: spark, t: trail, j: jet)
+		function emit(patternName, x, y, angle, sizeScale, countScale, hue, velX, velY) {
+		    if (angle === void 0) { angle = 0; }
+		    if (sizeScale === void 0) { sizeScale = 1; }
+		    if (countScale === void 0) { countScale = 1; }
+		    if (hue === void 0) { hue = null; }
+		    if (velX === void 0) { velX = 0; }
+		    if (velY === void 0) { velY = 0; }
+		    if (emitters[patternName] == null) {
+		        var random_1 = new Random();
+		        random_1.setSeed(seed + getHashFromString(patternName));
+		        emitters[patternName] = new Emitter(patternName[0], sizeScale, countScale, hue, random_1);
+		    }
+		    emitters[patternName].emit(x, y, angle, velX, velY);
+		}
+		exports.emit = emit;
+		function update() {
+		    Particle.update();
+		}
+		exports.update = update;
+		function getParticles() {
+		    return Particle.s;
+		}
+		exports.getParticles = getParticles;
+		function setSeed(_seed) {
+		    if (_seed === void 0) { _seed = 0; }
+		    seed = _seed;
+		}
+		exports.setSeed = setSeed;
+		function reset() {
+		    emitters = {};
+		    Particle.s = [];
+		}
+		exports.reset = reset;
+		var Emitter = (function () {
+		    function Emitter(patternType, sizeScale, countScale, hue, random) {
+		        if (sizeScale === void 0) { sizeScale = 1; }
+		        if (countScale === void 0) { countScale = 1; }
+		        if (hue === void 0) { hue = null; }
+		        this.base = new Particle();
+		        this.angleDeflection = 0;
+		        this.speedDeflection = 0.5;
+		        this.sizeDeflection = 0.5;
+		        this.ticksDeflection = 0.3;
+		        this.count = 1;
+		        if (hue == null) {
+		            hue = random.get01();
+		        }
+		        switch (patternType) {
+		            case 'e':
+		                this.base.speed = 0.7;
+		                this.base.slowdownRatio = 0.05;
+		                this.base.targetSize = 10;
+		                this.base.beginColor = new Color(hue, 1, 0.5, 0.3);
+		                this.base.middleColor = new Color(hue, 0.2, 1, 0.1);
+		                this.base.endColor = new Color(hue, 0, 0, 0);
+		                this.base.middleTicks = 20;
+		                this.base.endTicks = 30;
+		                this.angleDeflection = Math.PI * 2;
+		                this.count = 15;
+		                break;
+		            case 'm':
+		            case 's':
+		                this.base.speed = patternType === 'm' ? 1.5 : 0.5;
+		                this.base.slowdownRatio = 0.025;
+		                this.base.targetSize = 5;
+		                this.base.beginColor = new Color(hue, 0.5, 0.5, 0.3);
+		                this.base.middleColor = new Color(hue, 1, 1, 0.3);
+		                this.base.endColor = new Color(hue, 0.75, 0.75, 0.2);
+		                this.base.middleTicks = 10;
+		                this.base.endTicks = 20;
+		                this.angleDeflection = patternType === 'm' ?
+		                    0.3 * random.getForParam() : Math.PI * 2;
+		                this.count = 10;
+		                break;
+		            case 't':
+		            case 'j':
+		                this.base.speed = patternType === 't' ? 0.1 : 1;
+		                this.base.slowdownRatio = 0.03;
+		                this.base.targetSize = patternType === 't' ? 3 : 7;
+		                this.base.beginColor = new Color(hue, 0.7, 0.7, 0.4);
+		                this.base.middleColor = new Color(hue, 1, 1, 0.2);
+		                this.base.endColor = new Color(hue, 0.7, 0.7, 0.1);
+		                this.base.middleTicks = patternType === 't' ? 30 : 15;
+		                this.base.endTicks = patternType === 't' ? 40 : 20;
+		                this.angleDeflection = 0.5 * random.getForParam();
+		                this.speedDeflection = 0.1;
+		                this.sizeDeflection = 0.1;
+		                this.ticksDeflection = 0.1;
+		                this.count = 0.5;
+		                break;
+		        }
+		        this.base.speed *= sizeScale * exports.options.scaleRatio;
+		        this.base.targetSize *= sizeScale * exports.options.scaleRatio;
+		        this.count *= countScale;
+		        this.base.speed *= random.getForParam();
+		        this.base.slowdownRatio *= random.getForParam();
+		        this.base.targetSize *= random.getForParam();
+		        var em = this.base.endTicks - this.base.middleTicks;
+		        this.base.middleTicks *= random.getForParam();
+		        this.base.endTicks = this.base.middleTicks + em * random.getForParam();
+		        this.speedDeflection *= random.getForParam();
+		        this.sizeDeflection *= random.getForParam();
+		        this.ticksDeflection *= random.getForParam();
+		        this.count *= random.getForParam();
+		    }
+		    Emitter.prototype.emit = function (x, y, angle, velX, velY) {
+		        if (angle === void 0) { angle = 0; }
+		        if (velX === void 0) { velX = 0; }
+		        if (velY === void 0) { velY = 0; }
+		        if (this.count < 1 && this.count < Math.random()) {
+		            return;
+		        }
+		        for (var i = 0; i < this.count; i++) {
+		            var p = new Particle();
+		            p.pos.x = x;
+		            p.pos.y = y;
+		            p.vel.x = velX;
+		            p.vel.y = velY;
+		            p.angle = angle + (Math.random() - 0.5) * this.angleDeflection;
+		            p.speed = this.base.speed *
+		                ((Math.random() * 2 - 1) * this.speedDeflection + 1);
+		            p.slowdownRatio = this.base.slowdownRatio;
+		            p.targetSize = this.base.targetSize *
+		                ((Math.random() * 2 - 1) * this.sizeDeflection + 1);
+		            p.middleTicks = this.base.middleTicks *
+		                ((Math.random() * 2 - 1) * this.ticksDeflection + 1);
+		            p.endTicks = this.base.endTicks *
+		                ((Math.random() * 2 - 1) * this.ticksDeflection + 1);
+		            p.beginColor = this.base.beginColor;
+		            p.middleColor = this.base.middleColor;
+		            p.endColor = this.base.endColor;
+		            Particle.s.push(p);
+		        }
+		    };
+		    return Emitter;
+		}());
+		exports.Emitter = Emitter;
+		var Particle = (function () {
+		    function Particle() {
+		        this.pos = new Vector();
+		        this.vel = new Vector();
+		        this.size = 0;
+		        this.angle = 0;
+		        this.speed = 1;
+		        this.slowdownRatio = 0.01;
+		        this.targetSize = 10;
+		        this.middleTicks = 20;
+		        this.endTicks = 60;
+		        this.ticks = 0;
+		    }
+		    Particle.prototype.update = function () {
+		        this.pos.x += Math.cos(this.angle) * this.speed + this.vel.x;
+		        this.pos.y += Math.sin(this.angle) * this.speed + this.vel.y;
+		        this.speed *= (1 - this.slowdownRatio);
+		        this.vel.x *= 0.99;
+		        this.vel.y *= 0.99;
+		        if (this.ticks >= this.endTicks) {
+		            return false;
+		        }
+		        if (this.ticks < this.middleTicks) {
+		            this.color = this.beginColor.getLerped(this.middleColor, this.ticks / this.middleTicks);
+		            this.size += (this.targetSize - this.size) * 0.1;
+		        }
+		        else {
+		            this.color = this.middleColor.getLerped(this.endColor, (this.ticks - this.middleTicks) / (this.endTicks - this.middleTicks));
+		            this.size *= 0.95;
+		        }
+		        this.color = this.color.getSparkled();
+		        if (context != null) {
+		            context.fillStyle = this.color.getStyle();
+		            context.fillRect(this.pos.x - this.size / 2, this.pos.y - this.size / 2, this.size, this.size);
+		        }
+		        this.ticks++;
+		    };
+		    Particle.update = function () {
+		        if (context == null && exports.options.canvas != null) {
+		            context = exports.options.canvas.getContext('2d');
+		        }
+		        for (var i = 0; i < Particle.s.length;) {
+		            if (Particle.s[i].update() === false) {
+		                Particle.s.splice(i, 1);
+		            }
+		            else {
+		                i++;
+		            }
+		        }
+		    };
+		    Particle.s = [];
+		    return Particle;
+		}());
+		exports.Particle = Particle;
+		var Vector = (function () {
+		    function Vector(x, y) {
+		        if (x === void 0) { x = 0; }
+		        if (y === void 0) { y = 0; }
+		        this.x = x;
+		        this.y = y;
+		    }
+		    return Vector;
+		}());
+		exports.Vector = Vector;
+		var Color = (function () {
+		    function Color(hue, saturation, value, sparkleRatio) {
+		        if (hue === void 0) { hue = 0; }
+		        if (saturation === void 0) { saturation = 1; }
+		        if (value === void 0) { value = 1; }
+		        if (sparkleRatio === void 0) { sparkleRatio = 0; }
+		        this.hue = hue;
+		        this.saturation = saturation;
+		        this.value = value;
+		        this.sparkleRatio = sparkleRatio;
+		        this.r = 0;
+		        this.g = 0;
+		        this.b = 0;
+		        this.r = value;
+		        this.g = value;
+		        this.b = value;
+		        var h = hue * 6;
+		        var i = Math.floor(h);
+		        var f = h - i;
+		        switch (i) {
+		            case 0:
+		                this.g *= 1 - saturation * (1 - f);
+		                this.b *= 1 - saturation;
+		                break;
+		            case 1:
+		                this.b *= 1 - saturation;
+		                this.r *= 1 - saturation * f;
+		                break;
+		            case 2:
+		                this.b *= 1 - saturation * (1 - f);
+		                this.r *= 1 - saturation;
+		                break;
+		            case 3:
+		                this.r *= 1 - saturation;
+		                this.g *= 1 - saturation * f;
+		                break;
+		            case 4:
+		                this.r *= 1 - saturation * (1 - f);
+		                this.g *= 1 - saturation;
+		                break;
+		            case 5:
+		                this.g *= 1 - saturation;
+		                this.b *= 1 - saturation * f;
+		                break;
+		        }
+		    }
+		    Color.prototype.getStyle = function () {
+		        var r = Math.floor(this.r * 255);
+		        var g = Math.floor(this.g * 255);
+		        var b = Math.floor(this.b * 255);
+		        return "rgb(" + r + "," + g + "," + b + ")";
+		    };
+		    Color.prototype.getSparkled = function () {
+		        if (this.sparkled == null) {
+		            this.sparkled = new Color();
+		        }
+		        this.sparkled.r = clamp(this.r + this.sparkleRatio * (Math.random() * 2 - 1));
+		        this.sparkled.g = clamp(this.g + this.sparkleRatio * (Math.random() * 2 - 1));
+		        this.sparkled.b = clamp(this.b + this.sparkleRatio * (Math.random() * 2 - 1));
+		        return this.sparkled;
+		    };
+		    Color.prototype.getLerped = function (other, ratio) {
+		        if (this.lerped == null) {
+		            this.lerped = new Color();
+		        }
+		        this.lerped.r = this.r * (1 - ratio) + other.r * ratio;
+		        this.lerped.g = this.g * (1 - ratio) + other.g * ratio;
+		        this.lerped.b = this.b * (1 - ratio) + other.b * ratio;
+		        this.lerped.sparkleRatio =
+		            this.sparkleRatio * (1 - ratio) + other.sparkleRatio * ratio;
+		        return this.lerped;
+		    };
+		    return Color;
+		}());
+		exports.Color = Color;
+		function getHashFromString(str) {
+		    var hash = 0;
+		    var len = str.length;
+		    for (var i = 0; i < len; i++) {
+		        var chr = str.charCodeAt(i);
+		        hash = ((hash << 5) - hash) + chr;
+		        hash |= 0;
+		    }
+		    return hash;
+		}
+		function clamp(v) {
+		    if (v <= 0) {
+		        return 0;
+		    }
+		    else if (v >= 1) {
+		        return 1;
+		    }
+		    else {
+		        return v;
+		    }
+		}
+		var Random = (function () {
+		    function Random() {
+		        this.setSeed();
+		        this.get01 = this.get01.bind(this);
+		    }
+		    Random.prototype.setSeed = function (v) {
+		        if (v === void 0) { v = -0x7fffffff; }
+		        if (v === -0x7fffffff) {
+		            v = Math.floor(Math.random() * 0x7fffffff);
+		        }
+		        this.x = v = 1812433253 * (v ^ (v >> 30));
+		        this.y = v = 1812433253 * (v ^ (v >> 30)) + 1;
+		        this.z = v = 1812433253 * (v ^ (v >> 30)) + 2;
+		        this.w = v = 1812433253 * (v ^ (v >> 30)) + 3;
+		        return this;
+		    };
+		    Random.prototype.getInt = function () {
+		        var t = this.x ^ (this.x << 11);
+		        this.x = this.y;
+		        this.y = this.z;
+		        this.z = this.w;
+		        this.w = (this.w ^ (this.w >> 19)) ^ (t ^ (t >> 8));
+		        return this.w;
+		    };
+		    Random.prototype.get01 = function () {
+		        return this.getInt() / 0x7fffffff;
+		    };
+		    Random.prototype.getForParam = function () {
+		        return this.get01() + 0.5;
+		    };
+		    return Random;
+		}());
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
+
+/***/ },
+/* 9 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["ir"] = factory();
+		else
+			root["ir"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(1);
+	
+	
+	/***/ },
+	/* 1 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		"use strict";
+		var LZString = __webpack_require__(2);
+		exports.options = {
+		    frameCount: 180
+		};
+		var statuses;
+		var events;
+		var recordingIndex;
+		var replayingIndex;
+		function startRecord() {
+		    initStatusesAndEvents();
+		    recordingIndex = replayingIndex = 0;
+		}
+		exports.startRecord = startRecord;
+		function initStatusesAndEvents() {
+		    statuses = [];
+		    events = [];
+		    for (var i = 0; i < exports.options.frameCount; i++) {
+		        statuses.push(null);
+		        events.push(null);
+		    }
+		}
+		function record(status, _events) {
+		    statuses[recordingIndex] = status;
+		    events[recordingIndex] = _events;
+		    recordingIndex++;
+		    if (recordingIndex >= exports.options.frameCount) {
+		        recordingIndex = 0;
+		    }
+		}
+		exports.record = record;
+		function startReplay() {
+		    if (events == null || events[0] == null) {
+		        return false;
+		    }
+		    calcStartingReplayIndex();
+		    return statuses[replayingIndex];
+		}
+		exports.startReplay = startReplay;
+		function getEvents() {
+		    if (replayingIndex === recordingIndex) {
+		        return false;
+		    }
+		    var e = events[replayingIndex];
+		    replayingIndex++;
+		    if (replayingIndex >= exports.options.frameCount) {
+		        replayingIndex = 0;
+		    }
+		    return e;
+		}
+		exports.getEvents = getEvents;
+		function calcStartingReplayIndex() {
+		    replayingIndex = recordingIndex + 1;
+		    if (replayingIndex >= exports.options.frameCount || events[replayingIndex] == null) {
+		        replayingIndex = 0;
+		    }
+		}
+		function objectToArray(object, propertyNames) {
+		    var array = [];
+		    for (var i = 0; i < propertyNames.length; i++) {
+		        var ps = propertyNames[i].split('.');
+		        var o = object;
+		        for (var j = 0; j < ps.length; j++) {
+		            o = o[ps[j]];
+		        }
+		        array.push(o);
+		    }
+		    return array;
+		}
+		exports.objectToArray = objectToArray;
+		function arrayToObject(array, propertyNames, object) {
+		    if (object === void 0) { object = {}; }
+		    for (var i = 0; i < propertyNames.length; i++) {
+		        var ps = propertyNames[i].split('.');
+		        var o = object;
+		        for (var j = 0; j < ps.length; j++) {
+		            if (j < ps.length - 1) {
+		                if (o[ps[j]] == null) {
+		                    o[ps[j]] = {};
+		                }
+		                o = o[ps[j]];
+		            }
+		            else {
+		                o[ps[j]] = array[i];
+		            }
+		        }
+		    }
+		    return object;
+		}
+		exports.arrayToObject = arrayToObject;
+		function saveAsUrl() {
+		    if (events == null || events[0] == null) {
+		        return false;
+		    }
+		    var baseUrl = window.location.href.split('?')[0];
+		    calcStartingReplayIndex();
+		    var encDataStr = LZString.compressToEncodedURIComponent(JSON.stringify({ st: statuses[replayingIndex], ev: events, idx: recordingIndex }));
+		    var url = baseUrl + "?d=" + encDataStr;
+		    try {
+		        window.history.replaceState({}, '', url);
+		    }
+		    catch (e) {
+		        console.log(e);
+		        return false;
+		    }
+		}
+		exports.saveAsUrl = saveAsUrl;
+		function loadFromUrl() {
+		    var query = window.location.search.substring(1);
+		    if (query == null) {
+		        return false;
+		    }
+		    var params = query.split('&');
+		    var encDataStr;
+		    for (var i = 0; i < params.length; i++) {
+		        var param = params[i];
+		        var pair = param.split('=');
+		        if (pair[0] === 'd') {
+		            encDataStr = pair[1];
+		        }
+		    }
+		    if (encDataStr == null) {
+		        return false;
+		    }
+		    try {
+		        var data = JSON.parse(LZString.decompressFromEncodedURIComponent(encDataStr));
+		        initStatusesAndEvents();
+		        recordingIndex = data.idx;
+		        events = data.ev;
+		        calcStartingReplayIndex();
+		        statuses[replayingIndex] = data.st;
+		        return true;
+		    }
+		    catch (e) {
+		        console.log(e);
+		        return false;
+		    }
+		}
+		exports.loadFromUrl = loadFromUrl;
+	
+	
+	/***/ },
+	/* 2 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		var __WEBPACK_AMD_DEFINE_RESULT__;// Copyright (c) 2013 Pieroxy <pieroxy@pieroxy.net>
+		// This work is free. You can redistribute it and/or modify it
+		// under the terms of the WTFPL, Version 2
+		// For more information see LICENSE.txt or http://www.wtfpl.net/
+		//
+		// For more information, the home page:
+		// http://pieroxy.net/blog/pages/lz-string/testing.html
+		//
+		// LZ-based compression algorithm, version 1.4.4
+		var LZString = (function() {
+	
+		// private property
+		var f = String.fromCharCode;
+		var keyStrBase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+		var keyStrUriSafe = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+		var baseReverseDic = {};
+	
+		function getBaseValue(alphabet, character) {
+		  if (!baseReverseDic[alphabet]) {
+		    baseReverseDic[alphabet] = {};
+		    for (var i=0 ; i<alphabet.length ; i++) {
+		      baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+		    }
+		  }
+		  return baseReverseDic[alphabet][character];
+		}
+	
+		var LZString = {
+		  compressToBase64 : function (input) {
+		    if (input == null) return "";
+		    var res = LZString._compress(input, 6, function(a){return keyStrBase64.charAt(a);});
+		    switch (res.length % 4) { // To produce valid Base64
+		    default: // When could this happen ?
+		    case 0 : return res;
+		    case 1 : return res+"===";
+		    case 2 : return res+"==";
+		    case 3 : return res+"=";
+		    }
+		  },
+	
+		  decompressFromBase64 : function (input) {
+		    if (input == null) return "";
+		    if (input == "") return null;
+		    return LZString._decompress(input.length, 32, function(index) { return getBaseValue(keyStrBase64, input.charAt(index)); });
+		  },
+	
+		  compressToUTF16 : function (input) {
+		    if (input == null) return "";
+		    return LZString._compress(input, 15, function(a){return f(a+32);}) + " ";
+		  },
+	
+		  decompressFromUTF16: function (compressed) {
+		    if (compressed == null) return "";
+		    if (compressed == "") return null;
+		    return LZString._decompress(compressed.length, 16384, function(index) { return compressed.charCodeAt(index) - 32; });
+		  },
+	
+		  //compress into uint8array (UCS-2 big endian format)
+		  compressToUint8Array: function (uncompressed) {
+		    var compressed = LZString.compress(uncompressed);
+		    var buf=new Uint8Array(compressed.length*2); // 2 bytes per character
+	
+		    for (var i=0, TotalLen=compressed.length; i<TotalLen; i++) {
+		      var current_value = compressed.charCodeAt(i);
+		      buf[i*2] = current_value >>> 8;
+		      buf[i*2+1] = current_value % 256;
+		    }
+		    return buf;
+		  },
+	
+		  //decompress from uint8array (UCS-2 big endian format)
+		  decompressFromUint8Array:function (compressed) {
+		    if (compressed===null || compressed===undefined){
+		        return LZString.decompress(compressed);
+		    } else {
+		        var buf=new Array(compressed.length/2); // 2 bytes per character
+		        for (var i=0, TotalLen=buf.length; i<TotalLen; i++) {
+		          buf[i]=compressed[i*2]*256+compressed[i*2+1];
+		        }
+	
+		        var result = [];
+		        buf.forEach(function (c) {
+		          result.push(f(c));
+		        });
+		        return LZString.decompress(result.join(''));
+	
+		    }
+	
+		  },
+	
+	
+		  //compress into a string that is already URI encoded
+		  compressToEncodedURIComponent: function (input) {
+		    if (input == null) return "";
+		    return LZString._compress(input, 6, function(a){return keyStrUriSafe.charAt(a);});
+		  },
+	
+		  //decompress from an output of compressToEncodedURIComponent
+		  decompressFromEncodedURIComponent:function (input) {
+		    if (input == null) return "";
+		    if (input == "") return null;
+		    input = input.replace(/ /g, "+");
+		    return LZString._decompress(input.length, 32, function(index) { return getBaseValue(keyStrUriSafe, input.charAt(index)); });
+		  },
+	
+		  compress: function (uncompressed) {
+		    return LZString._compress(uncompressed, 16, function(a){return f(a);});
+		  },
+		  _compress: function (uncompressed, bitsPerChar, getCharFromInt) {
+		    if (uncompressed == null) return "";
+		    var i, value,
+		        context_dictionary= {},
+		        context_dictionaryToCreate= {},
+		        context_c="",
+		        context_wc="",
+		        context_w="",
+		        context_enlargeIn= 2, // Compensate for the first entry which should not count
+		        context_dictSize= 3,
+		        context_numBits= 2,
+		        context_data=[],
+		        context_data_val=0,
+		        context_data_position=0,
+		        ii;
+	
+		    for (ii = 0; ii < uncompressed.length; ii += 1) {
+		      context_c = uncompressed.charAt(ii);
+		      if (!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)) {
+		        context_dictionary[context_c] = context_dictSize++;
+		        context_dictionaryToCreate[context_c] = true;
+		      }
+	
+		      context_wc = context_w + context_c;
+		      if (Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)) {
+		        context_w = context_wc;
+		      } else {
+		        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)) {
+		          if (context_w.charCodeAt(0)<256) {
+		            for (i=0 ; i<context_numBits ; i++) {
+		              context_data_val = (context_data_val << 1);
+		              if (context_data_position == bitsPerChar-1) {
+		                context_data_position = 0;
+		                context_data.push(getCharFromInt(context_data_val));
+		                context_data_val = 0;
+		              } else {
+		                context_data_position++;
+		              }
+		            }
+		            value = context_w.charCodeAt(0);
+		            for (i=0 ; i<8 ; i++) {
+		              context_data_val = (context_data_val << 1) | (value&1);
+		              if (context_data_position == bitsPerChar-1) {
+		                context_data_position = 0;
+		                context_data.push(getCharFromInt(context_data_val));
+		                context_data_val = 0;
+		              } else {
+		                context_data_position++;
+		              }
+		              value = value >> 1;
+		            }
+		          } else {
+		            value = 1;
+		            for (i=0 ; i<context_numBits ; i++) {
+		              context_data_val = (context_data_val << 1) | value;
+		              if (context_data_position ==bitsPerChar-1) {
+		                context_data_position = 0;
+		                context_data.push(getCharFromInt(context_data_val));
+		                context_data_val = 0;
+		              } else {
+		                context_data_position++;
+		              }
+		              value = 0;
+		            }
+		            value = context_w.charCodeAt(0);
+		            for (i=0 ; i<16 ; i++) {
+		              context_data_val = (context_data_val << 1) | (value&1);
+		              if (context_data_position == bitsPerChar-1) {
+		                context_data_position = 0;
+		                context_data.push(getCharFromInt(context_data_val));
+		                context_data_val = 0;
+		              } else {
+		                context_data_position++;
+		              }
+		              value = value >> 1;
+		            }
+		          }
+		          context_enlargeIn--;
+		          if (context_enlargeIn == 0) {
+		            context_enlargeIn = Math.pow(2, context_numBits);
+		            context_numBits++;
+		          }
+		          delete context_dictionaryToCreate[context_w];
+		        } else {
+		          value = context_dictionary[context_w];
+		          for (i=0 ; i<context_numBits ; i++) {
+		            context_data_val = (context_data_val << 1) | (value&1);
+		            if (context_data_position == bitsPerChar-1) {
+		              context_data_position = 0;
+		              context_data.push(getCharFromInt(context_data_val));
+		              context_data_val = 0;
+		            } else {
+		              context_data_position++;
+		            }
+		            value = value >> 1;
+		          }
+	
+	
+		        }
+		        context_enlargeIn--;
+		        if (context_enlargeIn == 0) {
+		          context_enlargeIn = Math.pow(2, context_numBits);
+		          context_numBits++;
+		        }
+		        // Add wc to the dictionary.
+		        context_dictionary[context_wc] = context_dictSize++;
+		        context_w = String(context_c);
+		      }
+		    }
+	
+		    // Output the code for w.
+		    if (context_w !== "") {
+		      if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)) {
+		        if (context_w.charCodeAt(0)<256) {
+		          for (i=0 ; i<context_numBits ; i++) {
+		            context_data_val = (context_data_val << 1);
+		            if (context_data_position == bitsPerChar-1) {
+		              context_data_position = 0;
+		              context_data.push(getCharFromInt(context_data_val));
+		              context_data_val = 0;
+		            } else {
+		              context_data_position++;
+		            }
+		          }
+		          value = context_w.charCodeAt(0);
+		          for (i=0 ; i<8 ; i++) {
+		            context_data_val = (context_data_val << 1) | (value&1);
+		            if (context_data_position == bitsPerChar-1) {
+		              context_data_position = 0;
+		              context_data.push(getCharFromInt(context_data_val));
+		              context_data_val = 0;
+		            } else {
+		              context_data_position++;
+		            }
+		            value = value >> 1;
+		          }
+		        } else {
+		          value = 1;
+		          for (i=0 ; i<context_numBits ; i++) {
+		            context_data_val = (context_data_val << 1) | value;
+		            if (context_data_position == bitsPerChar-1) {
+		              context_data_position = 0;
+		              context_data.push(getCharFromInt(context_data_val));
+		              context_data_val = 0;
+		            } else {
+		              context_data_position++;
+		            }
+		            value = 0;
+		          }
+		          value = context_w.charCodeAt(0);
+		          for (i=0 ; i<16 ; i++) {
+		            context_data_val = (context_data_val << 1) | (value&1);
+		            if (context_data_position == bitsPerChar-1) {
+		              context_data_position = 0;
+		              context_data.push(getCharFromInt(context_data_val));
+		              context_data_val = 0;
+		            } else {
+		              context_data_position++;
+		            }
+		            value = value >> 1;
+		          }
+		        }
+		        context_enlargeIn--;
+		        if (context_enlargeIn == 0) {
+		          context_enlargeIn = Math.pow(2, context_numBits);
+		          context_numBits++;
+		        }
+		        delete context_dictionaryToCreate[context_w];
+		      } else {
+		        value = context_dictionary[context_w];
+		        for (i=0 ; i<context_numBits ; i++) {
+		          context_data_val = (context_data_val << 1) | (value&1);
+		          if (context_data_position == bitsPerChar-1) {
+		            context_data_position = 0;
+		            context_data.push(getCharFromInt(context_data_val));
+		            context_data_val = 0;
+		          } else {
+		            context_data_position++;
+		          }
+		          value = value >> 1;
+		        }
+	
+	
+		      }
+		      context_enlargeIn--;
+		      if (context_enlargeIn == 0) {
+		        context_enlargeIn = Math.pow(2, context_numBits);
+		        context_numBits++;
+		      }
+		    }
+	
+		    // Mark the end of the stream
+		    value = 2;
+		    for (i=0 ; i<context_numBits ; i++) {
+		      context_data_val = (context_data_val << 1) | (value&1);
+		      if (context_data_position == bitsPerChar-1) {
+		        context_data_position = 0;
+		        context_data.push(getCharFromInt(context_data_val));
+		        context_data_val = 0;
+		      } else {
+		        context_data_position++;
+		      }
+		      value = value >> 1;
+		    }
+	
+		    // Flush the last char
+		    while (true) {
+		      context_data_val = (context_data_val << 1);
+		      if (context_data_position == bitsPerChar-1) {
+		        context_data.push(getCharFromInt(context_data_val));
+		        break;
+		      }
+		      else context_data_position++;
+		    }
+		    return context_data.join('');
+		  },
+	
+		  decompress: function (compressed) {
+		    if (compressed == null) return "";
+		    if (compressed == "") return null;
+		    return LZString._decompress(compressed.length, 32768, function(index) { return compressed.charCodeAt(index); });
+		  },
+	
+		  _decompress: function (length, resetValue, getNextValue) {
+		    var dictionary = [],
+		        next,
+		        enlargeIn = 4,
+		        dictSize = 4,
+		        numBits = 3,
+		        entry = "",
+		        result = [],
+		        i,
+		        w,
+		        bits, resb, maxpower, power,
+		        c,
+		        data = {val:getNextValue(0), position:resetValue, index:1};
+	
+		    for (i = 0; i < 3; i += 1) {
+		      dictionary[i] = i;
+		    }
+	
+		    bits = 0;
+		    maxpower = Math.pow(2,2);
+		    power=1;
+		    while (power!=maxpower) {
+		      resb = data.val & data.position;
+		      data.position >>= 1;
+		      if (data.position == 0) {
+		        data.position = resetValue;
+		        data.val = getNextValue(data.index++);
+		      }
+		      bits |= (resb>0 ? 1 : 0) * power;
+		      power <<= 1;
+		    }
+	
+		    switch (next = bits) {
+		      case 0:
+		          bits = 0;
+		          maxpower = Math.pow(2,8);
+		          power=1;
+		          while (power!=maxpower) {
+		            resb = data.val & data.position;
+		            data.position >>= 1;
+		            if (data.position == 0) {
+		              data.position = resetValue;
+		              data.val = getNextValue(data.index++);
+		            }
+		            bits |= (resb>0 ? 1 : 0) * power;
+		            power <<= 1;
+		          }
+		        c = f(bits);
+		        break;
+		      case 1:
+		          bits = 0;
+		          maxpower = Math.pow(2,16);
+		          power=1;
+		          while (power!=maxpower) {
+		            resb = data.val & data.position;
+		            data.position >>= 1;
+		            if (data.position == 0) {
+		              data.position = resetValue;
+		              data.val = getNextValue(data.index++);
+		            }
+		            bits |= (resb>0 ? 1 : 0) * power;
+		            power <<= 1;
+		          }
+		        c = f(bits);
+		        break;
+		      case 2:
+		        return "";
+		    }
+		    dictionary[3] = c;
+		    w = c;
+		    result.push(c);
+		    while (true) {
+		      if (data.index > length) {
+		        return "";
+		      }
+	
+		      bits = 0;
+		      maxpower = Math.pow(2,numBits);
+		      power=1;
+		      while (power!=maxpower) {
+		        resb = data.val & data.position;
+		        data.position >>= 1;
+		        if (data.position == 0) {
+		          data.position = resetValue;
+		          data.val = getNextValue(data.index++);
+		        }
+		        bits |= (resb>0 ? 1 : 0) * power;
+		        power <<= 1;
+		      }
+	
+		      switch (c = bits) {
+		        case 0:
+		          bits = 0;
+		          maxpower = Math.pow(2,8);
+		          power=1;
+		          while (power!=maxpower) {
+		            resb = data.val & data.position;
+		            data.position >>= 1;
+		            if (data.position == 0) {
+		              data.position = resetValue;
+		              data.val = getNextValue(data.index++);
+		            }
+		            bits |= (resb>0 ? 1 : 0) * power;
+		            power <<= 1;
+		          }
+	
+		          dictionary[dictSize++] = f(bits);
+		          c = dictSize-1;
+		          enlargeIn--;
+		          break;
+		        case 1:
+		          bits = 0;
+		          maxpower = Math.pow(2,16);
+		          power=1;
+		          while (power!=maxpower) {
+		            resb = data.val & data.position;
+		            data.position >>= 1;
+		            if (data.position == 0) {
+		              data.position = resetValue;
+		              data.val = getNextValue(data.index++);
+		            }
+		            bits |= (resb>0 ? 1 : 0) * power;
+		            power <<= 1;
+		          }
+		          dictionary[dictSize++] = f(bits);
+		          c = dictSize-1;
+		          enlargeIn--;
+		          break;
+		        case 2:
+		          return result.join('');
+		      }
+	
+		      if (enlargeIn == 0) {
+		        enlargeIn = Math.pow(2, numBits);
+		        numBits++;
+		      }
+	
+		      if (dictionary[c]) {
+		        entry = dictionary[c];
+		      } else {
+		        if (c === dictSize) {
+		          entry = w + w.charAt(0);
+		        } else {
+		          return null;
+		        }
+		      }
+		      result.push(entry);
+	
+		      // Add w+entry[0] to the dictionary.
+		      dictionary[dictSize++] = w + entry.charAt(0);
+		      enlargeIn--;
+	
+		      w = entry;
+	
+		      if (enlargeIn == 0) {
+		        enlargeIn = Math.pow(2, numBits);
+		        numBits++;
+		      }
+	
+		    }
+		  }
+		};
+		  return LZString;
+		})();
+	
+		if (true) {
+		  !(__WEBPACK_AMD_DEFINE_RESULT__ = function () { return LZString; }.call(exports, __webpack_require__, exports, module), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+		} else if( typeof module !== 'undefined' && module != null ) {
+		  module.exports = LZString
+		}
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
+
+/***/ },
 /* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var ppe = __webpack_require__(4);
-	var s1 = __webpack_require__(2);
-	var text = __webpack_require__(11);
+	var _ = __webpack_require__(2);
+	var pag = __webpack_require__(4);
+	var ppe = __webpack_require__(8);
+	var ir = __webpack_require__(9);
+	var s1 = __webpack_require__(7);
+	var screen = __webpack_require__(11);
+	var p5;
+	var p;
+	var rotationNum = 16;
+	var Actor = (function () {
+	    function Actor() {
+	        this.pos = new p5.Vector();
+	        this.vel = new p5.Vector();
+	        this.angle = 0;
+	        this.speed = 0;
+	        this.isAlive = true;
+	        this.priority = 1;
+	        this.ticks = 0;
+	        this.collision = new p5.Vector();
+	        this.context = screen.context;
+	        Actor.add(this);
+	        this.type = ('' + this.constructor).replace(/^\s*function\s*([^\(]*)[\S\s]+$/im, '$1');
+	    }
+	    Actor.prototype.update = function () {
+	        this.pos.add(this.vel);
+	        this.pos.x += Math.cos(this.angle) * this.speed;
+	        this.pos.y += Math.sin(this.angle) * this.speed;
+	        if (this.pixels != null) {
+	            this.drawPixels();
+	        }
+	        this.ticks++;
+	    };
+	    Actor.prototype.remove = function () {
+	        this.isAlive = false;
+	    };
+	    Actor.prototype.testCollision = function (type) {
+	        var _this = this;
+	        return _.filter(Actor.get(type), function (a) {
+	            return p.abs(_this.pos.x - a.pos.x) < (_this.collision.x + a.collision.x) / 2 &&
+	                p.abs(_this.pos.y - a.pos.y) < (_this.collision.y + a.collision.y) / 2;
+	        });
+	    };
+	    Actor.prototype.emitParticles = function (patternName) {
+	        var args = [];
+	        for (var _i = 1; _i < arguments.length; _i++) {
+	            args[_i - 1] = arguments[_i];
+	        }
+	        ppe.emit.apply(ppe, [patternName, this.pos.x, this.pos.y, this.angle].concat(args));
+	    };
+	    Actor.prototype.drawPixels = function (x, y) {
+	        if (x === void 0) { x = null; }
+	        if (y === void 0) { y = null; }
+	        if (x == null) {
+	            x = this.pos.x;
+	        }
+	        if (y == null) {
+	            y = this.pos.y;
+	        }
+	        var a = this.angle;
+	        if (a < 0) {
+	            a = Math.PI * 2 - Math.abs(a % (Math.PI * 2));
+	        }
+	        var pxs = this.pixels[Math.round(a / (Math.PI * 2 / rotationNum)) % rotationNum];
+	        var pw = pxs.length;
+	        var ph = pxs[0].length;
+	        var sbx = Math.floor(x - pw / 2);
+	        var sby = Math.floor(y - ph / 2);
+	        for (var y_1 = 0, sy = sby; y_1 < ph; y_1++, sy++) {
+	            for (var x_1 = 0, sx = sbx; x_1 < pw; x_1++, sx++) {
+	                var px = pxs[x_1][y_1];
+	                if (!px.isEmpty) {
+	                    this.context.fillStyle = px.style;
+	                    this.context.fillRect(sx, sy, 1, 1);
+	                }
+	            }
+	        }
+	    };
+	    Actor.prototype.getReplayStatus = function () {
+	        if (this.replayPropertyNames == null) {
+	            return null;
+	        }
+	        return ir.objectToArray(this, this.replayPropertyNames);
+	    };
+	    Actor.prototype.setReplayStatus = function (status) {
+	        ir.arrayToObject(status, this.replayPropertyNames, this);
+	    };
+	    Actor.init = function () {
+	        p5 = s1.p5;
+	        p = s1.p;
+	        pag.defaultOptions.isMirrorY = true;
+	        pag.defaultOptions.rotationNum = rotationNum;
+	        pag.defaultOptions.scale = 2;
+	        Actor.clear();
+	    };
+	    Actor.add = function (actor) {
+	        Actor.actors.push(actor);
+	    };
+	    Actor.clear = function () {
+	        Actor.actors = [];
+	    };
+	    Actor.update = function () {
+	        Actor.actors.sort(function (a, b) { return a.priority - b.priority; });
+	        _.forEach(Actor.actors, function (a) {
+	            a.update();
+	        });
+	        for (var i = 0; i < Actor.actors.length;) {
+	            if (Actor.actors[i].isAlive === false) {
+	                Actor.actors.splice(i, 1);
+	            }
+	            else {
+	                i++;
+	            }
+	        }
+	    };
+	    Actor.get = function (type) {
+	        return _.filter(Actor.actors, function (a) { return a.type === type; });
+	    };
+	    Actor.getReplayStatus = function () {
+	        var status = [];
+	        _.forEach(Actor.actors, function (a) {
+	            var array = a.getReplayStatus();
+	            if (array != null) {
+	                status.push([a.type, array]);
+	            }
+	        });
+	        return status;
+	    };
+	    Actor.setReplayStatus = function (status, actorGeneratorFunc) {
+	        _.forEach(status, function (s) {
+	            actorGeneratorFunc(s[0], s[1]);
+	        });
+	    };
+	    return Actor;
+	}());
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.default = Actor;
+
+
+/***/ },
+/* 11 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	var ppe = __webpack_require__(8);
+	var s1 = __webpack_require__(7);
+	var text = __webpack_require__(12);
 	var p5;
 	var p;
 	var backgroundColor;
@@ -20839,7 +22378,7 @@
 
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -20933,11 +22472,11 @@
 
 
 /***/ },
-/* 12 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var ir = __webpack_require__(6);
+	var ir = __webpack_require__(9);
 	var Random = (function () {
 	    function Random() {
 	        this.propNames = ['x', 'y', 'z', 'w'];
@@ -20989,12 +22528,12 @@
 
 
 /***/ },
-/* 13 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var sss = __webpack_require__(5);
-	var s1 = __webpack_require__(2);
+	var s1 = __webpack_require__(7);
 	var p5;
 	exports.isPressing = false;
 	exports.isPressed = false;
@@ -21087,7 +22626,7 @@
 
 
 /***/ },
-/* 14 */
+/* 15 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -21123,7 +22662,7 @@
 
 
 /***/ },
-/* 15 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var require;var require;/*! p5.js v0.5.4 October 01, 2016 */
@@ -54157,7 +55696,7 @@
 	});
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports) {
 
 	var R = {}; // the Recurrent library
@@ -55695,1536 +57234,6 @@
 	
 	module.exports = RL;
 
-
-/***/ },
-/* 17 */
-/***/ function(module, exports, __webpack_require__) {
-
-	(function webpackUniversalModuleDefinition(root, factory) {
-		if(true)
-			module.exports = factory();
-		else if(typeof define === 'function' && define.amd)
-			define([], factory);
-		else if(typeof exports === 'object')
-			exports["gcc"] = factory();
-		else
-			root["gcc"] = factory();
-	})(this, function() {
-	return /******/ (function(modules) { // webpackBootstrap
-	/******/ 	// The module cache
-	/******/ 	var installedModules = {};
-	
-	/******/ 	// The require function
-	/******/ 	function __webpack_require__(moduleId) {
-	
-	/******/ 		// Check if module is in cache
-	/******/ 		if(installedModules[moduleId])
-	/******/ 			return installedModules[moduleId].exports;
-	
-	/******/ 		// Create a new module (and put it into the cache)
-	/******/ 		var module = installedModules[moduleId] = {
-	/******/ 			exports: {},
-	/******/ 			id: moduleId,
-	/******/ 			loaded: false
-	/******/ 		};
-	
-	/******/ 		// Execute the module function
-	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-	
-	/******/ 		// Flag the module as loaded
-	/******/ 		module.loaded = true;
-	
-	/******/ 		// Return the exports of the module
-	/******/ 		return module.exports;
-	/******/ 	}
-	
-	
-	/******/ 	// expose the modules object (__webpack_modules__)
-	/******/ 	__webpack_require__.m = modules;
-	
-	/******/ 	// expose the module cache
-	/******/ 	__webpack_require__.c = installedModules;
-	
-	/******/ 	// __webpack_public_path__
-	/******/ 	__webpack_require__.p = "";
-	
-	/******/ 	// Load entry module and return exports
-	/******/ 	return __webpack_require__(0);
-	/******/ })
-	/************************************************************************/
-	/******/ ([
-	/* 0 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		module.exports = __webpack_require__(1);
-	
-	
-	/***/ },
-	/* 1 */
-	/***/ function(module, exports, __webpack_require__) {
-	
-		"use strict";
-		var GIFEncoder = __webpack_require__(2);
-		var options = {
-		    scale: 0.5,
-		    durationSec: 3,
-		    keyCode: 67,
-		    capturingFps: 20,
-		    appFps: 60,
-		    isAppendingImgElement: true
-		};
-		var contextsNum;
-		var contexts;
-		var isCaptured;
-		var index = 0;
-		var frameCount = 0;
-		var image = new Image();
-		function capture(element) {
-		    frameCount++;
-		    var capturePerFrame = options.appFps / options.capturingFps;
-		    if (frameCount < capturePerFrame) {
-		        return;
-		    }
-		    frameCount -= capturePerFrame;
-		    if (!contexts) {
-		        begin(element);
-		    }
-		    contexts[index].drawImage(element, 0, 0);
-		    isCaptured[index] = true;
-		    index++;
-		    if (index >= contextsNum) {
-		        index = 0;
-		    }
-		}
-		exports.capture = capture;
-		function captureSvg(svgElm) {
-		    var capturePerFrame = options.appFps / options.capturingFps;
-		    if (frameCount + 1 < capturePerFrame) {
-		        frameCount++;
-		        return;
-		    }
-		    var svgXml = new XMLSerializer().serializeToString(svgElm);
-		    image.src = "data:image/svg+xml;base64," + btoa(svgXml);
-		    capture(image);
-		}
-		exports.captureSvg = captureSvg;
-		function begin(element) {
-		    contextsNum = options.durationSec * options.capturingFps;
-		    contexts = times(contextsNum, function () {
-		        var cvs = document.createElement('canvas');
-		        cvs.width = element.width * options.scale;
-		        cvs.height = element.height * options.scale;
-		        var ctx = cvs.getContext('2d');
-		        ctx.scale(options.scale, options.scale);
-		        return ctx;
-		    });
-		    isCaptured = times(contextsNum, function () { return false; });
-		    document.addEventListener('keydown', function (e) {
-		        if (e.keyCode == options.keyCode) {
-		            end();
-		        }
-		    });
-		}
-		function end() {
-		    var encoder = new GIFEncoder();
-		    encoder.setRepeat(0);
-		    encoder.setDelay(1000 / options.capturingFps);
-		    encoder.start();
-		    var idx = index;
-		    times(contextsNum, function () {
-		        if (isCaptured[idx]) {
-		            encoder.addFrame(contexts[idx]);
-		        }
-		        idx++;
-		        if (idx >= contextsNum) {
-		            idx = 0;
-		        }
-		    });
-		    encoder.finish();
-		    var binaryGif = encoder.stream().getData();
-		    var imgElement = document.createElement('img');
-		    imgElement.src = 'data:image/gif;base64,' + encode64(binaryGif);
-		    if (options.isAppendingImgElement) {
-		        document.getElementsByTagName('body')[0].appendChild(imgElement);
-		    }
-		    return imgElement;
-		}
-		exports.end = end;
-		function times(n, func) {
-		    var result = [];
-		    for (var i = 0; i < n; i++) {
-		        result.push(func());
-		    }
-		    return result;
-		}
-		function setOptions(_options) {
-		    for (var attr in _options) {
-		        options[attr] = _options[attr];
-		    }
-		}
-		exports.setOptions = setOptions;
-		// https://github.com/antimatter15/jsgif/blob/master/b64.js
-		function encode64(input) {
-		    var output = "", i = 0, l = input.length, key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-		    while (i < l) {
-		        chr1 = input.charCodeAt(i++);
-		        chr2 = input.charCodeAt(i++);
-		        chr3 = input.charCodeAt(i++);
-		        enc1 = chr1 >> 2;
-		        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-		        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-		        enc4 = chr3 & 63;
-		        if (isNaN(chr2))
-		            enc3 = enc4 = 64;
-		        else if (isNaN(chr3))
-		            enc4 = 64;
-		        output = output + key.charAt(enc1) + key.charAt(enc2) + key.charAt(enc3) + key.charAt(enc4);
-		    }
-		    return output;
-		}
-	
-	
-	/***/ },
-	/* 2 */
-	/***/ function(module, exports) {
-	
-		/**
-		 * This class lets you encode animated GIF files
-		 * Base class :  http://www.java2s.com/Code/Java/2D-Graphics-GUI/AnimatedGifEncoder.htm
-		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
-		 * @author Thibault Imbert (AS3 version - bytearray.org)
-		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
-		 * @version 0.1 AS3 implementation
-		 */
-	
-		GIFEncoder = function () {
-	
-		  for (var i = 0, chr = {}; i < 256; i++)
-		    chr[i] = String.fromCharCode(i);
-	
-		  function ByteArray() {
-		    this.bin = [];
-		  }
-	
-		  ByteArray.prototype.getData = function () {
-		    for (var v = '', l = this.bin.length, i = 0; i < l; i++)
-		      v += chr[this.bin[i]];
-		    return v;
-		  };
-	
-		  ByteArray.prototype.writeByte = function (val) {
-		    this.bin.push(val);
-		  };
-	
-		  ByteArray.prototype.writeUTFBytes = function (string) {
-		    for (var l = string.length, i = 0; i < l; i++)
-		      this.writeByte(string.charCodeAt(i));
-		  };
-	
-		  ByteArray.prototype.writeBytes = function (array, offset, length) {
-		    for (var l = length || array.length, i = offset || 0; i < l; i++)
-		      this.writeByte(array[i]);
-		  };
-	
-		  var exports = {};
-		  var width; // image size
-		  var height;
-		  var transparent = null; // transparent color if given
-		  var transIndex; // transparent index in color table
-		  var repeat = -1; // no repeat
-		  var delay = 0; // frame delay (hundredths)
-		  var started = false; // ready to output frames
-		  var out;
-		  var image; // current frame
-		  var pixels; // BGR byte array from frame
-		  var indexedPixels; // converted frame indexed to palette
-		  var colorDepth; // number of bit planes
-		  var colorTab; // RGB palette
-		  var usedEntry = []; // active palette entries
-		  var palSize = 7; // color table size (bits-1)
-		  var dispose = -1; // disposal code (-1 = use default)
-		  var closeStream = false; // close stream when finished
-		  var firstFrame = true;
-		  var sizeSet = false; // if false, get size from first frame
-		  var sample = 10; // default sample interval for quantizer
-		  var comment = "Generated by jsgif (https://github.com/antimatter15/jsgif/)"; // default comment for generated gif
-	
-			/**
-			 * Sets the delay time between each frame, or changes it for subsequent frames
-			 * (applies to last frame added)
-			 * int delay time in milliseconds
-			 * @param ms
-			 */
-	
-		  var setDelay = exports.setDelay = function setDelay(ms) {
-		    delay = Math.round(ms / 10);
-		  };
-	
-			/**
-			 * Sets the GIF frame disposal code for the last added frame and any
-			 *
-			 * subsequent frames. Default is 0 if no transparent color has been set,
-			 * otherwise 2.
-			 * @param code
-			 * int disposal code.
-			 */
-	
-		  var setDispose = exports.setDispose = function setDispose(code) {
-		    if (code >= 0) dispose = code;
-		  };
-	
-			/**
-			 * Sets the number of times the set of GIF frames should be played. Default is
-			 * 1; 0 means play indefinitely. Must be invoked before the first image is
-			 * added.
-			 *
-			 * @param iter
-			 * int number of iterations.
-			 * @return
-			 */
-	
-		  var setRepeat = exports.setRepeat = function setRepeat(iter) {
-		    if (iter >= 0) repeat = iter;
-		  };
-	
-			/**
-			 * Sets the transparent color for the last added frame and any subsequent
-			 * frames. Since all colors are subject to modification in the quantization
-			 * process, the color in the final palette for each frame closest to the given
-			 * color becomes the transparent color for that frame. May be set to null to
-			 * indicate no transparent color.
-			 * @param
-			 * Color to be treated as transparent on display.
-			 */
-	
-		  var setTransparent = exports.setTransparent = function setTransparent(c) {
-		    transparent = c;
-		  };
-	
-	
-			/**
-			 * Sets the comment for the block comment
-			 * @param
-			 * string to be insterted as comment
-			 */
-	
-		  var setComment = exports.setComment = function setComment(c) {
-		    comment = c;
-		  };
-	
-	
-	
-			/**
-			 * The addFrame method takes an incoming BitmapData object to create each frames
-			 * @param
-			 * BitmapData object to be treated as a GIF's frame
-			 */
-	
-		  var addFrame = exports.addFrame = function addFrame(im, is_imageData) {
-	
-		    if ((im === null) || !started || out === null) {
-		      throw new Error("Please call start method before calling addFrame");
-		    }
-	
-		    var ok = true;
-	
-		    try {
-		      if (!is_imageData) {
-		        image = im.getImageData(0, 0, im.canvas.width, im.canvas.height).data;
-		        if (!sizeSet) setSize(im.canvas.width, im.canvas.height);
-		      } else {
-		        image = im;
-		      }
-		      getImagePixels(); // convert to correct format if necessary
-		      analyzePixels(); // build color table & map pixels
-	
-		      if (firstFrame) {
-		        writeLSD(); // logical screen descriptior
-		        writePalette(); // global color table
-		        if (repeat >= 0) {
-		          // use NS app extension to indicate reps
-		          writeNetscapeExt();
-		        }
-		      }
-	
-		      writeGraphicCtrlExt(); // write graphic control extension
-		      if (comment !== '') {
-		        writeCommentExt(); // write comment extension
-		      }
-		      writeImageDesc(); // image descriptor
-		      if (!firstFrame) writePalette(); // local color table
-		      writePixels(); // encode and write pixel data
-		      firstFrame = false;
-		    } catch (e) {
-		      ok = false;
-		    }
-	
-		    return ok;
-		  };
-	
-			/**
-			 * Adds final trailer to the GIF stream, if you don't call the finish method
-			 * the GIF stream will not be valid.
-			 */
-	
-		  var finish = exports.finish = function finish() {
-	
-		    if (!started) return false;
-	
-		    var ok = true;
-		    started = false;
-	
-		    try {
-		      out.writeByte(0x3b); // gif trailer
-		    } catch (e) {
-		      ok = false;
-		    }
-	
-		    return ok;
-		  };
-	
-			/**
-			 * Resets some members so that a new stream can be started.
-			 * This method is actually called by the start method
-			 */
-	
-		  var reset = function reset() {
-	
-		    // reset for subsequent use
-		    transIndex = 0;
-		    image = null;
-		    pixels = null;
-		    indexedPixels = null;
-		    colorTab = null;
-		    closeStream = false;
-		    firstFrame = true;
-		  };
-	
-			/**
-			 * * Sets frame rate in frames per second. Equivalent to
-			 * <code>setDelay(1000/fps)</code>.
-			 * @param fps
-			 * float frame rate (frames per second)
-			 */
-	
-		  var setFrameRate = exports.setFrameRate = function setFrameRate(fps) {
-		    if (fps != 0xf) delay = Math.round(100 / fps);
-		  };
-	
-			/**
-			 * Sets quality of color quantization (conversion of images to the maximum 256
-			 * colors allowed by the GIF specification). Lower values (minimum = 1)
-			 * produce better colors, but slow processing significantly. 10 is the
-			 * default, and produces good color mapping at reasonable speeds. Values
-			 * greater than 20 do not yield significant improvements in speed.
-			 * @param quality
-			 * int greater than 0.
-			 * @return
-			 */
-	
-		  var setQuality = exports.setQuality = function setQuality(quality) {
-		    if (quality < 1) quality = 1;
-		    sample = quality;
-		  };
-	
-			/**
-			 * Sets the GIF frame size. The default size is the size of the first frame
-			 * added if this method is not invoked.
-			 * @param w
-			 * int frame width.
-			 * @param h
-			 * int frame width.
-			 */
-	
-		  var setSize = exports.setSize = function setSize(w, h) {
-	
-		    if (started && !firstFrame) return;
-		    width = w;
-		    height = h;
-		    if (width < 1) width = 320;
-		    if (height < 1) height = 240;
-		    sizeSet = true;
-		  };
-	
-			/**
-			 * Initiates GIF file creation on the given stream.
-			 * @param os
-			 * OutputStream on which GIF images are written.
-			 * @return false if initial write failed.
-			 */
-	
-		  var start = exports.start = function start() {
-	
-		    reset();
-		    var ok = true;
-		    closeStream = false;
-		    out = new ByteArray();
-		    try {
-		      out.writeUTFBytes("GIF89a"); // header
-		    } catch (e) {
-		      ok = false;
-		    }
-	
-		    return started = ok;
-		  };
-	
-		  var cont = exports.cont = function cont() {
-	
-		    reset();
-		    var ok = true;
-		    closeStream = false;
-		    out = new ByteArray();
-	
-		    return started = ok;
-		  };
-	
-			/**
-			 * Analyzes image colors and creates color map.
-			 */
-	
-		  var analyzePixels = function analyzePixels() {
-	
-		    var len = pixels.length;
-		    var nPix = len / 3;
-		    indexedPixels = [];
-		    var nq = new NeuQuant(pixels, len, sample);
-	
-		    // initialize quantizer
-		    colorTab = nq.process(); // create reduced palette
-	
-		    // map image pixels to new palette
-		    var k = 0;
-		    for (var j = 0; j < nPix; j++) {
-		      var index = nq.map(pixels[k++] & 0xff, pixels[k++] & 0xff, pixels[k++] & 0xff);
-		      usedEntry[index] = true;
-		      indexedPixels[j] = index;
-		    }
-	
-		    pixels = null;
-		    colorDepth = 8;
-		    palSize = 7;
-	
-		    // get closest match to transparent color if specified
-		    if (transparent !== null) {
-		      transIndex = findClosest(transparent);
-		    }
-		  };
-	
-			/**
-			 * Returns index of palette color closest to c
-			 */
-	
-		  var findClosest = function findClosest(c) {
-	
-		    if (colorTab === null) return -1;
-		    var r = (c & 0xFF0000) >> 16;
-		    var g = (c & 0x00FF00) >> 8;
-		    var b = (c & 0x0000FF);
-		    var minpos = 0;
-		    var dmin = 256 * 256 * 256;
-		    var len = colorTab.length;
-	
-		    for (var i = 0; i < len;) {
-		      var dr = r - (colorTab[i++] & 0xff);
-		      var dg = g - (colorTab[i++] & 0xff);
-		      var db = b - (colorTab[i] & 0xff);
-		      var d = dr * dr + dg * dg + db * db;
-		      var index = i / 3;
-		      if (usedEntry[index] && (d < dmin)) {
-		        dmin = d;
-		        minpos = index;
-		      }
-		      i++;
-		    }
-		    return minpos;
-		  };
-	
-			/**
-			 * Extracts image pixels into byte array "pixels
-			 */
-	
-		  var getImagePixels = function getImagePixels() {
-		    var w = width;
-		    var h = height;
-		    pixels = [];
-		    var data = image;
-		    var count = 0;
-	
-		    for (var i = 0; i < h; i++) {
-	
-		      for (var j = 0; j < w; j++) {
-	
-		        var b = (i * w * 4) + j * 4;
-		        pixels[count++] = data[b];
-		        pixels[count++] = data[b + 1];
-		        pixels[count++] = data[b + 2];
-	
-		      }
-	
-		    }
-		  };
-	
-			/**
-			 * Writes Graphic Control Extension
-			 */
-	
-		  var writeGraphicCtrlExt = function writeGraphicCtrlExt() {
-		    out.writeByte(0x21); // extension introducer
-		    out.writeByte(0xf9); // GCE label
-		    out.writeByte(4); // data block size
-		    var transp;
-		    var disp;
-		    if (transparent === null) {
-		      transp = 0;
-		      disp = 0; // dispose = no action
-		    } else {
-		      transp = 1;
-		      disp = 2; // force clear if using transparent color
-		    }
-		    if (dispose >= 0) {
-		      disp = dispose & 7; // user override
-		    }
-		    disp <<= 2;
-		    // packed fields
-		    out.writeByte(0 | // 1:3 reserved
-		      disp | // 4:6 disposal
-		      0 | // 7 user input - 0 = none
-		      transp); // 8 transparency flag
-	
-		    WriteShort(delay); // delay x 1/100 sec
-		    out.writeByte(transIndex); // transparent color index
-		    out.writeByte(0); // block terminator
-		  };
-	
-			/**
-			 * Writes Comment Extention
-			 */
-	
-		  var writeCommentExt = function writeCommentExt() {
-		    out.writeByte(0x21); // extension introducer
-		    out.writeByte(0xfe); // comment label
-		    out.writeByte(comment.length); // Block Size (s)
-		    out.writeUTFBytes(comment);
-		    out.writeByte(0); // block terminator
-		  };
-	
-	
-			/**
-			 * Writes Image Descriptor
-			 */
-	
-		  var writeImageDesc = function writeImageDesc() {
-	
-		    out.writeByte(0x2c); // image separator
-		    WriteShort(0); // image position x,y = 0,0
-		    WriteShort(0);
-		    WriteShort(width); // image size
-		    WriteShort(height);
-	
-		    // packed fields
-		    if (firstFrame) {
-		      // no LCT - GCT is used for first (or only) frame
-		      out.writeByte(0);
-		    } else {
-		      // specify normal LCT
-		      out.writeByte(0x80 | // 1 local color table 1=yes
-		        0 | // 2 interlace - 0=no
-		        0 | // 3 sorted - 0=no
-		        0 | // 4-5 reserved
-		        palSize); // 6-8 size of color table
-		    }
-		  };
-	
-			/**
-			 * Writes Logical Screen Descriptor
-			 */
-	
-		  var writeLSD = function writeLSD() {
-	
-		    // logical screen size
-		    WriteShort(width);
-		    WriteShort(height);
-		    // packed fields
-		    out.writeByte((0x80 | // 1 : global color table flag = 1 (gct used)
-		      0x70 | // 2-4 : color resolution = 7
-		      0x00 | // 5 : gct sort flag = 0
-		      palSize)); // 6-8 : gct size
-	
-		    out.writeByte(0); // background color index
-		    out.writeByte(0); // pixel aspect ratio - assume 1:1
-		  };
-	
-			/**
-			 * Writes Netscape application extension to define repeat count.
-			 */
-	
-		  var writeNetscapeExt = function writeNetscapeExt() {
-		    out.writeByte(0x21); // extension introducer
-		    out.writeByte(0xff); // app extension label
-		    out.writeByte(11); // block size
-		    out.writeUTFBytes("NETSCAPE" + "2.0"); // app id + auth code
-		    out.writeByte(3); // sub-block size
-		    out.writeByte(1); // loop sub-block id
-		    WriteShort(repeat); // loop count (extra iterations, 0=repeat forever)
-		    out.writeByte(0); // block terminator
-		  };
-	
-			/**
-			 * Writes color table
-			 */
-	
-		  var writePalette = function writePalette() {
-		    out.writeBytes(colorTab);
-		    var n = (3 * 256) - colorTab.length;
-		    for (var i = 0; i < n; i++) out.writeByte(0);
-		  };
-	
-		  var WriteShort = function WriteShort(pValue) {
-		    out.writeByte(pValue & 0xFF);
-		    out.writeByte((pValue >> 8) & 0xFF);
-		  };
-	
-			/**
-			 * Encodes and writes pixel data
-			 */
-	
-		  var writePixels = function writePixels() {
-		    var myencoder = new LZWEncoder(width, height, indexedPixels, colorDepth);
-		    myencoder.encode(out);
-		  };
-	
-			/**
-			 * Retrieves the GIF stream
-			 */
-	
-		  var stream = exports.stream = function stream() {
-		    return out;
-		  };
-	
-		  var setProperties = exports.setProperties = function setProperties(has_start, is_first) {
-		    started = has_start;
-		    firstFrame = is_first;
-		  };
-	
-		  return exports;
-	
-		};
-	
-		module.exports = GIFEncoder;
-	
-		/**
-		 * This class handles LZW encoding
-		 * Adapted from Jef Poskanzer's Java port by way of J. M. G. Elliott.
-		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
-		 * @author Thibault Imbert (AS3 version - bytearray.org)
-		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
-		 * @version 0.1 AS3 implementation
-		 */
-	
-		LZWEncoder = function () {
-	
-		  var exports = {};
-		  var EOF = -1;
-		  var imgW;
-		  var imgH;
-		  var pixAry;
-		  var initCodeSize;
-		  var remaining;
-		  var curPixel;
-	
-		  // GIFCOMPR.C - GIF Image compression routines
-		  // Lempel-Ziv compression based on 'compress'. GIF modifications by
-		  // David Rowley (mgardi@watdcsu.waterloo.edu)
-		  // General DEFINEs
-	
-		  var BITS = 12;
-		  var HSIZE = 5003; // 80% occupancy
-	
-		  // GIF Image compression - modified 'compress'
-		  // Based on: compress.c - File compression ala IEEE Computer, June 1984.
-		  // By Authors: Spencer W. Thomas (decvax!harpo!utah-cs!utah-gr!thomas)
-		  // Jim McKie (decvax!mcvax!jim)
-		  // Steve Davies (decvax!vax135!petsd!peora!srd)
-		  // Ken Turkowski (decvax!decwrl!turtlevax!ken)
-		  // James A. Woods (decvax!ihnp4!ames!jaw)
-		  // Joe Orost (decvax!vax135!petsd!joe)
-	
-		  var n_bits; // number of bits/code
-		  var maxbits = BITS; // user settable max # bits/code
-		  var maxcode; // maximum code, given n_bits
-		  var maxmaxcode = 1 << BITS; // should NEVER generate this code
-		  var htab = [];
-		  var codetab = [];
-		  var hsize = HSIZE; // for dynamic table sizing
-		  var free_ent = 0; // first unused entry
-	
-		  // block compression parameters -- after all codes are used up,
-		  // and compression rate changes, start over.
-	
-		  var clear_flg = false;
-	
-		  // Algorithm: use open addressing double hashing (no chaining) on the
-		  // prefix code / next character combination. We do a variant of Knuth's
-		  // algorithm D (vol. 3, sec. 6.4) along with G. Knott's relatively-prime
-		  // secondary probe. Here, the modular division first probe is gives way
-		  // to a faster exclusive-or manipulation. Also do block compression with
-		  // an adaptive reset, whereby the code table is cleared when the compression
-		  // ratio decreases, but after the table fills. The variable-length output
-		  // codes are re-sized at this point, and a special CLEAR code is generated
-		  // for the decompressor. Late addition: construct the table according to
-		  // file size for noticeable speed improvement on small files. Please direct
-		  // questions about this implementation to ames!jaw.
-	
-		  var g_init_bits;
-		  var ClearCode;
-		  var EOFCode;
-	
-		  // output
-		  // Output the given code.
-		  // Inputs:
-		  // code: A n_bits-bit integer. If == -1, then EOF. This assumes
-		  // that n_bits =< wordsize - 1.
-		  // Outputs:
-		  // Outputs code to the file.
-		  // Assumptions:
-		  // Chars are 8 bits long.
-		  // Algorithm:
-		  // Maintain a BITS character long buffer (so that 8 codes will
-		  // fit in it exactly). Use the VAX insv instruction to insert each
-		  // code in turn. When the buffer fills up empty it and start over.
-	
-		  var cur_accum = 0;
-		  var cur_bits = 0;
-		  var masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
-	
-		  // Number of characters so far in this 'packet'
-		  var a_count;
-	
-		  // Define the storage for the packet accumulator
-		  var accum = [];
-	
-		  var LZWEncoder = exports.LZWEncoder = function LZWEncoder(width, height, pixels, color_depth) {
-		    imgW = width;
-		    imgH = height;
-		    pixAry = pixels;
-		    initCodeSize = Math.max(2, color_depth);
-		  };
-	
-		  // Add a character to the end of the current packet, and if it is 254
-		  // characters, flush the packet to disk.
-		  var char_out = function char_out(c, outs) {
-		    accum[a_count++] = c;
-		    if (a_count >= 254) flush_char(outs);
-		  };
-	
-		  // Clear out the hash table
-		  // table clear for block compress
-	
-		  var cl_block = function cl_block(outs) {
-		    cl_hash(hsize);
-		    free_ent = ClearCode + 2;
-		    clear_flg = true;
-		    output(ClearCode, outs);
-		  };
-	
-		  // reset code table
-		  var cl_hash = function cl_hash(hsize) {
-		    for (var i = 0; i < hsize; ++i) htab[i] = -1;
-		  };
-	
-		  var compress = exports.compress = function compress(init_bits, outs) {
-	
-		    var fcode;
-		    var i; /* = 0 */
-		    var c;
-		    var ent;
-		    var disp;
-		    var hsize_reg;
-		    var hshift;
-	
-		    // Set up the globals: g_init_bits - initial number of bits
-		    g_init_bits = init_bits;
-	
-		    // Set up the necessary values
-		    clear_flg = false;
-		    n_bits = g_init_bits;
-		    maxcode = MAXCODE(n_bits);
-	
-		    ClearCode = 1 << (init_bits - 1);
-		    EOFCode = ClearCode + 1;
-		    free_ent = ClearCode + 2;
-	
-		    a_count = 0; // clear packet
-	
-		    ent = nextPixel();
-	
-		    hshift = 0;
-		    for (fcode = hsize; fcode < 65536; fcode *= 2)
-		      ++hshift;
-		    hshift = 8 - hshift; // set hash code range bound
-	
-		    hsize_reg = hsize;
-		    cl_hash(hsize_reg); // clear hash table
-	
-		    output(ClearCode, outs);
-	
-		    outer_loop: while ((c = nextPixel()) != EOF) {
-		      fcode = (c << maxbits) + ent;
-		      i = (c << hshift) ^ ent; // xor hashing
-	
-		      if (htab[i] == fcode) {
-		        ent = codetab[i];
-		        continue;
-		      }
-	
-		      else if (htab[i] >= 0) { // non-empty slot
-	
-		        disp = hsize_reg - i; // secondary hash (after G. Knott)
-		        if (i === 0) disp = 1;
-	
-		        do {
-		          if ((i -= disp) < 0)
-		            i += hsize_reg;
-	
-		          if (htab[i] == fcode) {
-		            ent = codetab[i];
-		            continue outer_loop;
-		          }
-		        } while (htab[i] >= 0);
-		      }
-	
-		      output(ent, outs);
-		      ent = c;
-		      if (free_ent < maxmaxcode) {
-		        codetab[i] = free_ent++; // code -> hashtable
-		        htab[i] = fcode;
-		      }
-		      else cl_block(outs);
-		    }
-	
-		    // Put out the final code.
-		    output(ent, outs);
-		    output(EOFCode, outs);
-		  };
-	
-		  // ----------------------------------------------------------------------------
-		  var encode = exports.encode = function encode(os) {
-		    os.writeByte(initCodeSize); // write "initial code size" byte
-		    remaining = imgW * imgH; // reset navigation variables
-		    curPixel = 0;
-		    compress(initCodeSize + 1, os); // compress and write the pixel data
-		    os.writeByte(0); // write block terminator
-		  };
-	
-		  // Flush the packet to disk, and reset the accumulator
-		  var flush_char = function flush_char(outs) {
-		    if (a_count > 0) {
-		      outs.writeByte(a_count);
-		      outs.writeBytes(accum, 0, a_count);
-		      a_count = 0;
-		    }
-		  };
-	
-		  var MAXCODE = function MAXCODE(n_bits) {
-		    return (1 << n_bits) - 1;
-		  };
-	
-		  // ----------------------------------------------------------------------------
-		  // Return the next pixel from the image
-		  // ----------------------------------------------------------------------------
-	
-		  var nextPixel = function nextPixel() {
-		    if (remaining === 0) return EOF;
-		    --remaining;
-		    var pix = pixAry[curPixel++];
-		    return pix & 0xff;
-		  };
-	
-		  var output = function output(code, outs) {
-	
-		    cur_accum &= masks[cur_bits];
-	
-		    if (cur_bits > 0) cur_accum |= (code << cur_bits);
-		    else cur_accum = code;
-	
-		    cur_bits += n_bits;
-	
-		    while (cur_bits >= 8) {
-		      char_out((cur_accum & 0xff), outs);
-		      cur_accum >>= 8;
-		      cur_bits -= 8;
-		    }
-	
-		    // If the next entry is going to be too big for the code size,
-		    // then increase it, if possible.
-	
-		    if (free_ent > maxcode || clear_flg) {
-	
-		      if (clear_flg) {
-	
-		        maxcode = MAXCODE(n_bits = g_init_bits);
-		        clear_flg = false;
-	
-		      } else {
-	
-		        ++n_bits;
-		        if (n_bits == maxbits) maxcode = maxmaxcode;
-		        else maxcode = MAXCODE(n_bits);
-		      }
-		    }
-	
-		    if (code == EOFCode) {
-	
-		      // At EOF, write the rest of the buffer.
-		      while (cur_bits > 0) {
-		        char_out((cur_accum & 0xff), outs);
-		        cur_accum >>= 8;
-		        cur_bits -= 8;
-		      }
-	
-		      flush_char(outs);
-		    }
-		  };
-	
-		  LZWEncoder.apply(this, arguments);
-		  return exports;
-		};
-	
-		/*
-		 * NeuQuant Neural-Net Quantization Algorithm
-		 * ------------------------------------------
-		 *
-		 * Copyright (c) 1994 Anthony Dekker
-		 *
-		 * NEUQUANT Neural-Net quantization algorithm by Anthony Dekker, 1994. See
-		 * "Kohonen neural networks for optimal colour quantization" in "Network:
-		 * Computation in Neural Systems" Vol. 5 (1994) pp 351-367. for a discussion of
-		 * the algorithm.
-		 *
-		 * Any party obtaining a copy of these files from the author, directly or
-		 * indirectly, is granted, free of charge, a full and unrestricted irrevocable,
-		 * world-wide, paid up, royalty-free, nonexclusive right and license to deal in
-		 * this software and documentation files (the "Software"), including without
-		 * limitation the rights to use, copy, modify, merge, publish, distribute,
-		 * sublicense, and/or sell copies of the Software, and to permit persons who
-		 * receive copies from any such party to do so, with the only requirement being
-		 * that this copyright notice remain intact.
-		 */
-	
-		/*
-		 * This class handles Neural-Net quantization algorithm
-		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
-		 * @author Thibault Imbert (AS3 version - bytearray.org)
-		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
-		 * @version 0.1 AS3 implementation
-		 */
-	
-		NeuQuant = function () {
-	
-		  var exports = {};
-		  var netsize = 256; /* number of colours used */
-	
-		  /* four primes near 500 - assume no image has a length so large */
-		  /* that it is divisible by all four primes */
-	
-		  var prime1 = 499;
-		  var prime2 = 491;
-		  var prime3 = 487;
-		  var prime4 = 503;
-		  var minpicturebytes = (3 * prime4); /* minimum size for input image */
-	
-			/*
-			 * Program Skeleton ---------------- [select samplefac in range 1..30] [read
-			 * image from input file] pic = (unsigned char*) malloc(3*width*height);
-			 * initnet(pic,3*width*height,samplefac); learn(); unbiasnet(); [write output
-			 * image header, using writecolourmap(f)] inxbuild(); write output image using
-			 * inxsearch(b,g,r)
-			 */
-	
-			/*
-			 * Network Definitions -------------------
-			 */
-	
-		  var maxnetpos = (netsize - 1);
-		  var netbiasshift = 4; /* bias for colour values */
-		  var ncycles = 100; /* no. of learning cycles */
-	
-		  /* defs for freq and bias */
-		  var intbiasshift = 16; /* bias for fractions */
-		  var intbias = (1 << intbiasshift);
-		  var gammashift = 10; /* gamma = 1024 */
-		  var gamma = (1 << gammashift);
-		  var betashift = 10;
-		  var beta = (intbias >> betashift); /* beta = 1/1024 */
-		  var betagamma = (intbias << (gammashift - betashift));
-	
-		  /* defs for decreasing radius factor */
-		  var initrad = (netsize >> 3); /* for 256 cols, radius starts */
-		  var radiusbiasshift = 6; /* at 32.0 biased by 6 bits */
-		  var radiusbias = (1 << radiusbiasshift);
-		  var initradius = (initrad * radiusbias); /* and decreases by a */
-		  var radiusdec = 30; /* factor of 1/30 each cycle */
-	
-		  /* defs for decreasing alpha factor */
-		  var alphabiasshift = 10; /* alpha starts at 1.0 */
-		  var initalpha = (1 << alphabiasshift);
-		  var alphadec; /* biased by 10 bits */
-	
-		  /* radbias and alpharadbias used for radpower calculation */
-		  var radbiasshift = 8;
-		  var radbias = (1 << radbiasshift);
-		  var alpharadbshift = (alphabiasshift + radbiasshift);
-		  var alpharadbias = (1 << alpharadbshift);
-	
-			/*
-			 * Types and Global Variables --------------------------
-			 */
-	
-		  var thepicture; /* the input image itself */
-		  var lengthcount; /* lengthcount = H*W*3 */
-		  var samplefac; /* sampling factor 1..30 */
-	
-		  // typedef int pixel[4]; /* BGRc */
-		  var network; /* the network itself - [netsize][4] */
-		  var netindex = [];
-	
-		  /* for network lookup - really 256 */
-		  var bias = [];
-	
-		  /* bias and freq arrays for learning */
-		  var freq = [];
-		  var radpower = [];
-	
-		  var NeuQuant = exports.NeuQuant = function NeuQuant(thepic, len, sample) {
-	
-		    var i;
-		    var p;
-	
-		    thepicture = thepic;
-		    lengthcount = len;
-		    samplefac = sample;
-	
-		    network = new Array(netsize);
-	
-		    for (i = 0; i < netsize; i++) {
-	
-		      network[i] = new Array(4);
-		      p = network[i];
-		      p[0] = p[1] = p[2] = (i << (netbiasshift + 8)) / netsize;
-		      freq[i] = intbias / netsize; /* 1/netsize */
-		      bias[i] = 0;
-		    }
-		  };
-	
-		  var colorMap = function colorMap() {
-	
-		    var map = [];
-		    var index = new Array(netsize);
-	
-		    for (var i = 0; i < netsize; i++)
-		      index[network[i][3]] = i;
-	
-		    var k = 0;
-		    for (var l = 0; l < netsize; l++) {
-		      var j = index[l];
-		      map[k++] = (network[j][0]);
-		      map[k++] = (network[j][1]);
-		      map[k++] = (network[j][2]);
-		    }
-	
-		    return map;
-		  };
-	
-			/*
-			 * Insertion sort of network and building of netindex[0..255] (to do after
-			 * unbias)
-			 * -------------------------------------------------------------------------------
-			 */
-	
-		  var inxbuild = function inxbuild() {
-	
-		    var i;
-		    var j;
-		    var smallpos;
-		    var smallval;
-		    var p;
-		    var q;
-		    var previouscol;
-		    var startpos;
-	
-		    previouscol = 0;
-		    startpos = 0;
-		    for (i = 0; i < netsize; i++) {
-	
-		      p = network[i];
-		      smallpos = i;
-		      smallval = p[1]; /* index on g */
-	
-		      /* find smallest in i..netsize-1 */
-		      for (j = i + 1; j < netsize; j++) {
-	
-		        q = network[j];
-		        if (q[1] < smallval) { /* index on g */
-		          smallpos = j;
-		          smallval = q[1]; /* index on g */
-		        }
-		      }
-		      q = network[smallpos];
-	
-		      /* swap p (i) and q (smallpos) entries */
-		      if (i != smallpos) {
-		        j = q[0];
-		        q[0] = p[0];
-		        p[0] = j;
-		        j = q[1];
-		        q[1] = p[1];
-		        p[1] = j;
-		        j = q[2];
-		        q[2] = p[2];
-		        p[2] = j;
-		        j = q[3];
-		        q[3] = p[3];
-		        p[3] = j;
-		      }
-	
-		      /* smallval entry is now in position i */
-	
-		      if (smallval != previouscol) {
-	
-		        netindex[previouscol] = (startpos + i) >> 1;
-	
-		        for (j = previouscol + 1; j < smallval; j++) netindex[j] = i;
-	
-		        previouscol = smallval;
-		        startpos = i;
-		      }
-		    }
-	
-		    netindex[previouscol] = (startpos + maxnetpos) >> 1;
-		    for (j = previouscol + 1; j < 256; j++) netindex[j] = maxnetpos; /* really 256 */
-		  };
-	
-			/*
-			 * Main Learning Loop ------------------
-			 */
-	
-		  var learn = function learn() {
-	
-		    var i;
-		    var j;
-		    var b;
-		    var g;
-		    var r;
-		    var radius;
-		    var rad;
-		    var alpha;
-		    var step;
-		    var delta;
-		    var samplepixels;
-		    var p;
-		    var pix;
-		    var lim;
-	
-		    if (lengthcount < minpicturebytes) samplefac = 1;
-	
-		    alphadec = 30 + ((samplefac - 1) / 3);
-		    p = thepicture;
-		    pix = 0;
-		    lim = lengthcount;
-		    samplepixels = lengthcount / (3 * samplefac);
-		    delta = (samplepixels / ncycles) | 0;
-		    alpha = initalpha;
-		    radius = initradius;
-	
-		    rad = radius >> radiusbiasshift;
-		    if (rad <= 1) rad = 0;
-	
-		    for (i = 0; i < rad; i++) radpower[i] = alpha * (((rad * rad - i * i) * radbias) / (rad * rad));
-	
-		    if (lengthcount < minpicturebytes) step = 3;
-	
-		    else if ((lengthcount % prime1) !== 0) step = 3 * prime1;
-	
-		    else {
-	
-		      if ((lengthcount % prime2) !== 0) step = 3 * prime2;
-		      else {
-		        if ((lengthcount % prime3) !== 0) step = 3 * prime3;
-		        else step = 3 * prime4;
-		      }
-		    }
-	
-		    i = 0;
-		    while (i < samplepixels) {
-	
-		      b = (p[pix + 0] & 0xff) << netbiasshift;
-		      g = (p[pix + 1] & 0xff) << netbiasshift;
-		      r = (p[pix + 2] & 0xff) << netbiasshift;
-		      j = contest(b, g, r);
-	
-		      altersingle(alpha, j, b, g, r);
-		      if (rad !== 0) alterneigh(rad, j, b, g, r); /* alter neighbours */
-	
-		      pix += step;
-		      if (pix >= lim) pix -= lengthcount;
-	
-		      i++;
-	
-		      if (delta === 0) delta = 1;
-	
-		      if (i % delta === 0) {
-		        alpha -= alpha / alphadec;
-		        radius -= radius / radiusdec;
-		        rad = radius >> radiusbiasshift;
-	
-		        if (rad <= 1) rad = 0;
-	
-		        for (j = 0; j < rad; j++) radpower[j] = alpha * (((rad * rad - j * j) * radbias) / (rad * rad));
-		      }
-		    }
-		  };
-	
-			/*
-			 ** Search for BGR values 0..255 (after net is unbiased) and return colour
-			 * index
-			 * ----------------------------------------------------------------------------
-			 */
-	
-		  var map = exports.map = function map(b, g, r) {
-	
-		    var i;
-		    var j;
-		    var dist;
-		    var a;
-		    var bestd;
-		    var p;
-		    var best;
-	
-		    bestd = 1000; /* biggest possible dist is 256*3 */
-		    best = -1;
-		    i = netindex[g]; /* index on g */
-		    j = i - 1; /* start at netindex[g] and work outwards */
-	
-		    while ((i < netsize) || (j >= 0)) {
-	
-		      if (i < netsize) {
-		        p = network[i];
-		        dist = p[1] - g; /* inx key */
-	
-		        if (dist >= bestd) i = netsize; /* stop iter */
-	
-		        else {
-	
-		          i++;
-		          if (dist < 0) dist = -dist;
-		          a = p[0] - b;
-		          if (a < 0) a = -a;
-		          dist += a;
-	
-		          if (dist < bestd) {
-		            a = p[2] - r;
-		            if (a < 0) a = -a;
-		            dist += a;
-	
-		            if (dist < bestd) {
-		              bestd = dist;
-		              best = p[3];
-		            }
-		          }
-		        }
-		      }
-	
-		      if (j >= 0) {
-	
-		        p = network[j];
-		        dist = g - p[1]; /* inx key - reverse dif */
-	
-		        if (dist >= bestd) j = -1; /* stop iter */
-	
-		        else {
-	
-		          j--;
-		          if (dist < 0) dist = -dist;
-		          a = p[0] - b;
-		          if (a < 0) a = -a;
-		          dist += a;
-	
-		          if (dist < bestd) {
-		            a = p[2] - r;
-		            if (a < 0) a = -a;
-		            dist += a;
-		            if (dist < bestd) {
-		              bestd = dist;
-		              best = p[3];
-		            }
-		          }
-		        }
-		      }
-		    }
-	
-		    return (best);
-		  };
-	
-		  var process = exports.process = function process() {
-		    learn();
-		    unbiasnet();
-		    inxbuild();
-		    return colorMap();
-		  };
-	
-			/*
-			 * Unbias network to give byte values 0..255 and record position i to prepare
-			 * for sort
-			 * -----------------------------------------------------------------------------------
-			 */
-	
-		  var unbiasnet = function unbiasnet() {
-	
-		    var i;
-		    var j;
-	
-		    for (i = 0; i < netsize; i++) {
-		      network[i][0] >>= netbiasshift;
-		      network[i][1] >>= netbiasshift;
-		      network[i][2] >>= netbiasshift;
-		      network[i][3] = i; /* record colour no */
-		    }
-		  };
-	
-			/*
-			 * Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in
-			 * radpower[|i-j|]
-			 * ---------------------------------------------------------------------------------
-			 */
-	
-		  var alterneigh = function alterneigh(rad, i, b, g, r) {
-	
-		    var j;
-		    var k;
-		    var lo;
-		    var hi;
-		    var a;
-		    var m;
-		    var p;
-	
-		    lo = i - rad;
-		    if (lo < -1) lo = -1;
-	
-		    hi = i + rad;
-		    if (hi > netsize) hi = netsize;
-	
-		    j = i + 1;
-		    k = i - 1;
-		    m = 1;
-	
-		    while ((j < hi) || (k > lo)) {
-		      a = radpower[m++];
-	
-		      if (j < hi) {
-		        p = network[j++];
-	
-		        try {
-		          p[0] -= (a * (p[0] - b)) / alpharadbias;
-		          p[1] -= (a * (p[1] - g)) / alpharadbias;
-		          p[2] -= (a * (p[2] - r)) / alpharadbias;
-		        } catch (e) { } // prevents 1.3 miscompilation
-		      }
-	
-		      if (k > lo) {
-		        p = network[k--];
-	
-		        try {
-		          p[0] -= (a * (p[0] - b)) / alpharadbias;
-		          p[1] -= (a * (p[1] - g)) / alpharadbias;
-		          p[2] -= (a * (p[2] - r)) / alpharadbias;
-		        } catch (e) { }
-		      }
-		    }
-		  };
-	
-			/*
-			 * Move neuron i towards biased (b,g,r) by factor alpha
-			 * ----------------------------------------------------
-			 */
-	
-		  var altersingle = function altersingle(alpha, i, b, g, r) {
-	
-		    /* alter hit neuron */
-		    var n = network[i];
-		    n[0] -= (alpha * (n[0] - b)) / initalpha;
-		    n[1] -= (alpha * (n[1] - g)) / initalpha;
-		    n[2] -= (alpha * (n[2] - r)) / initalpha;
-		  };
-	
-			/*
-			 * Search for biased BGR values ----------------------------
-			 */
-	
-		  var contest = function contest(b, g, r) {
-	
-		    /* finds closest neuron (min dist) and updates freq */
-		    /* finds best neuron (min dist-bias) and returns position */
-		    /* for frequently chosen neurons, freq[i] is high and bias[i] is negative */
-		    /* bias[i] = gamma*((1/netsize)-freq[i]) */
-	
-		    var i;
-		    var dist;
-		    var a;
-		    var biasdist;
-		    var betafreq;
-		    var bestpos;
-		    var bestbiaspos;
-		    var bestd;
-		    var bestbiasd;
-		    var n;
-	
-		    bestd = ~(1 << 31);
-		    bestbiasd = bestd;
-		    bestpos = -1;
-		    bestbiaspos = bestpos;
-	
-		    for (i = 0; i < netsize; i++) {
-		      n = network[i];
-		      dist = n[0] - b;
-		      if (dist < 0) dist = -dist;
-		      a = n[1] - g;
-		      if (a < 0) a = -a;
-		      dist += a;
-		      a = n[2] - r;
-		      if (a < 0) a = -a;
-		      dist += a;
-	
-		      if (dist < bestd) {
-		        bestd = dist;
-		        bestpos = i;
-		      }
-	
-		      biasdist = dist - ((bias[i]) >> (intbiasshift - netbiasshift));
-	
-		      if (biasdist < bestbiasd) {
-		        bestbiasd = biasdist;
-		        bestbiaspos = i;
-		      }
-	
-		      betafreq = (freq[i] >> betashift);
-		      freq[i] -= betafreq;
-		      bias[i] += (betafreq << gammashift);
-		    }
-	
-		    freq[bestpos] += beta;
-		    bias[bestpos] -= betagamma;
-		    return (bestbiaspos);
-		  };
-	
-		  NeuQuant.apply(this, arguments);
-		  return exports;
-		};
-	
-	
-	/***/ }
-	/******/ ])
-	});
-	;
 
 /***/ }
 /******/ ]);
