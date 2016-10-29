@@ -19,7 +19,7 @@ function init() {
   s1.setSeeds(9009582);
   /*s1.enableDebug(() => {
   });*/
-  gcc.setOptions({ scale: 1 });
+  //gcc.setOptions({ scale: 2 });
 }
 
 const laneCount = 8;
@@ -69,7 +69,7 @@ function update() {
 
 function postUpdate() {
   drawDqnRewards();
-  gcc.capture(s1.screen.canvas);
+  //gcc.capture(s1.screen.canvas);
 }
 
 class Dqn extends s1.Actor {
