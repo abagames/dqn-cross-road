@@ -4,7 +4,7 @@ Test program to make the [DQN](http://cs.stanford.edu/people/karpathy/reinforcej
 
 ![screenshot](https://abagames.github.io/dqn-cross-road/screenshot.gif)
 
-See [the demo](https://abagames.github.io/dqn-cross-road/).
+See [the demo](https://abagames.github.io/dqn-cross-road/index.html).
 
 ### Acknowledgement
 
