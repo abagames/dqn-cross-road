@@ -14,4 +14,5 @@ See [the demo](https://abagames.github.io/dqn-cross-road/index.html).
 ### Acknowledgement
 
 [REINFORCEjs](http://cs.stanford.edu/people/karpathy/reinforcejs/)
+
 [Flappy Learning](https://github.com/xviniette/FlappyLearning)
