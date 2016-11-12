@@ -45,13 +45,13 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	__webpack_require__(1);
-	__webpack_require__(10);
-	__webpack_require__(15);
-	__webpack_require__(7);
-	__webpack_require__(13);
-	__webpack_require__(11);
+	__webpack_require__(9);
+	__webpack_require__(14);
+	__webpack_require__(6);
 	__webpack_require__(12);
-	module.exports = __webpack_require__(14);
+	__webpack_require__(10);
+	__webpack_require__(11);
+	module.exports = __webpack_require__(13);
 
 
 /***/ },
@@ -67,8 +67,13 @@
 	var _ = __webpack_require__(2);
 	var pag = __webpack_require__(4);
 	var sss = __webpack_require__(5);
-	var s1 = __webpack_require__(7);
-	var RL = __webpack_require__(17);
+	var gcc = __webpack_require__(18);
+	var s1 = __webpack_require__(6);
+	var RL = __webpack_require__(16);
+	var Neuroevolution = __webpack_require__(17);
+	var isEnableGcc = false;
+	var ne;
+	var genCount = 0;
 	s1.init(init, initGame, update, postUpdate);
 	function init() {
 	    s1.screen.init(128, 128);
@@ -78,12 +83,17 @@
 	        isShowingScore: false
 	    });
 	    s1.setSeeds(9009582);
-	    /*s1.enableDebug(() => {
-	    });*/
-	    //gcc.setOptions({ scale: 2 });
+	    ne = new Neuroevolution({
+	        population: dqnCount / 2,
+	        network: [Dqn.sightLane * 2, [10, 10], 2]
+	    });
+	    if (isEnableGcc) {
+	        gcc.setOptions({ scale: 2 });
+	    }
 	}
 	var laneCount = 8;
-	var dqnCount = 8;
+	var dqnCount = 10;
+	var aliveDqn;
 	function initGame() {
 	    _.times(16, function (i) {
 	        var edge = new Road(['xxxx']);
@@ -100,26 +110,26 @@
 	            line.pos.y = 14 + 12 + y * 12;
 	        });
 	    });
-	    _.times(dqnCount, function () { return new Dqn(); });
-	    sortDqns();
 	}
 	function update() {
-	    if (s1.ticks % (60 * 5) == 60 * 5 - 1) {
-	        var dqns = s1.Actor.get('Dqn');
-	        if (dqns.length > 1) {
-	            sortDqns(true);
+	    if (s1.Actor.get('Dqn').length <= 0) {
+	        var gen = ne.nextGeneration();
+	        _.forEach(gen, function (g) { return new Dqn(g); });
+	        var agentJSON_1;
+	        if (aliveDqn != null) {
+	            agentJSON_1 = aliveDqn.agent.toJSON();
 	        }
-	        else {
-	            var aliveDqn = dqns[0];
-	            aliveDqn.totalReward = 0;
-	            var agentJSON_1 = aliveDqn.agent.toJSON();
-	            _.times(dqnCount - 2, function () {
-	                var d = new Dqn();
+	        _.times(dqnCount / 2, function () {
+	            var d = new Dqn();
+	            if (agentJSON_1 != null) {
 	                d.agent.fromJSON(agentJSON_1);
-	            });
-	            new Dqn();
-	            sortDqns();
-	        }
+	            }
+	        });
+	        sortDqns();
+	        genCount++;
+	    }
+	    if (s1.ticks % (60 * 2) == 60 * 2 - 1) {
+	        sortDqns(true);
 	    }
 	    if (s1.ticks % 20 === 0) {
 	        new Car();
@@ -127,22 +137,33 @@
 	}
 	function postUpdate() {
 	    drawDqnRewards();
-	    //gcc.capture(s1.screen.canvas);
+	    var gs = "GEN" + genCount;
+	    s1.text.draw(gs, s1.screen.size.x - gs.length * 4 - 4, 4);
+	    if (isEnableGcc) {
+	        gcc.capture(s1.screen.canvas);
+	    }
 	}
 	var Dqn = (function (_super) {
 	    __extends(Dqn, _super);
-	    function Dqn() {
+	    function Dqn(gen) {
+	        if (gen === void 0) { gen = null; }
 	        _super.call(this);
+	        this.gen = gen;
 	        this.lane = laneCount + 1;
 	        this.totalReward = 0;
 	        this.isHit = false;
 	        this.isFirst = true;
 	        this.index = 0;
-	        var env = {};
-	        env.getNumStates = function () { return Dqn.sightLane * 2; };
-	        env.getMaxNumActions = function () { return 3; };
-	        this.agent = new RL.DQNAgent(env, {});
-	        this.pixels = pag.generate([' x', 'xxx', 'x x'], { isMirrorY: false, hue: Dqn.hueIndex });
+	        this.outOfLaneTicks = 0;
+	        this.isDqn = true;
+	        this.isDqn = gen == null;
+	        if (this.isDqn) {
+	            var env = {};
+	            env.getNumStates = function () { return Dqn.sightLane * 2; };
+	            env.getMaxNumActions = function () { return 3; };
+	            this.agent = new RL.DQNAgent(env, {});
+	        }
+	        this.pixels = pag.generate([' x', 'xxx', 'x x'], { isMirrorY: false, hue: Dqn.hueIndex * 0.15 + (this.isDqn ? 0 : 0.5) });
 	        this.pos.x = s1.screen.size.x / 2;
 	        Dqn.hueIndex += 0.11;
 	        if (Dqn.hueIndex >= 1) {
@@ -162,19 +183,23 @@
 	        }
 	        var reward = 0;
 	        if (this.isHit) {
-	            reward--;
+	            reward -= 5;
 	            this.emitParticles('e1');
 	            sss.play('e1');
 	            this.lane = laneCount + 1;
+	            this.outOfLaneTicks = 0;
 	            this.isHit = false;
 	        }
 	        else if (this.lane < 1) {
 	            reward++;
 	            sss.play('c1');
 	            this.lane = laneCount + 1;
+	            this.outOfLaneTicks = 0;
 	        }
 	        if (!this.isFirst) {
-	            this.agent.learn(reward);
+	            if (this.isDqn) {
+	                this.agent.learn(reward);
+	            }
 	            this.totalReward += reward;
 	        }
 	        else {
@@ -182,10 +207,17 @@
 	        }
 	        var state = _.times(Dqn.sightLane, function (i) {
 	            var l = _this.lane + i - (Dqn.sightLane - 1) / 2;
-	            var type = l < 1 ? 1 : (l > laneCount) ? -1 : 0;
-	            return [getNearestCarDist(l), type];
+	            var type = l < 1 ? 1 : (l > laneCount) ? 0 : 0.5;
+	            return [getNearestCarDist(l) / 64, type];
 	        });
-	        var action = this.agent.act(_.flatten(state));
+	        var action = 0;
+	        if (this.isDqn) {
+	            action = this.agent.act(_.flatten(state));
+	        }
+	        else {
+	            var res = this.gen.compute(_.flatten(state));
+	            action = res[0] > 0.5 ? 0 : res[1] > 0.5 ? 2 : 1;
+	        }
 	        var prevLane = this.lane;
 	        this.lane += action - 1;
 	        if (this.lane > laneCount) {
@@ -194,11 +226,15 @@
 	            }
 	            else {
 	                this.lane = laneCount + 1;
+	                this.outOfLaneTicks++;
+	                if (this.outOfLaneTicks > 6) {
+	                    this.lane = laneCount;
+	                }
 	            }
 	        }
 	    };
 	    Dqn.hueIndex = 0;
-	    Dqn.sightLane = 5;
+	    Dqn.sightLane = 3;
 	    return Dqn;
 	}(s1.Actor));
 	function sortDqns(isElminating) {
@@ -207,13 +243,19 @@
 	    if (isElminating) {
 	        var ed = dqns[0];
 	        ed.emitParticles('e2', 2);
-	        sss.play('u1');
+	        sss.play('e2');
+	        if (!ed.isDqn) {
+	            ne.networkScore(ed.gen, ed.totalReward);
+	        }
 	        ed.remove();
 	        dqns.shift();
 	    }
 	    _.forEach(dqns, function (d, i) {
 	        d.index = i;
 	        d.priority = 10 - i;
+	        if (d.isDqn) {
+	            aliveDqn = d;
+	        }
 	    });
 	}
 	function drawDqnRewards() {
@@ -292,7 +334,7 @@
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(global, module) {/**
 	 * @license
 	 * lodash <https://lodash.com/>
-	 * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+	 * Copyright JS Foundation and other contributors <https://js.foundation/>
 	 * Released under MIT license <https://lodash.com/license>
 	 * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
 	 * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -303,7 +345,7 @@
 	  var undefined;
 	
 	  /** Used as the semantic version number. */
-	  var VERSION = '4.16.4';
+	  var VERSION = '4.16.6';
 	
 	  /** Used as the size to enable large array optimizations. */
 	  var LARGE_ARRAY_SIZE = 200;
@@ -342,7 +384,7 @@
 	      DEFAULT_TRUNC_OMISSION = '...';
 	
 	  /** Used to detect hot functions by number of calls within a span of milliseconds. */
-	  var HOT_COUNT = 500,
+	  var HOT_COUNT = 800,
 	      HOT_SPAN = 16;
 	
 	  /** Used to indicate the type of lazy iteratees. */
@@ -377,13 +419,16 @@
 	  /** `Object#toString` result references. */
 	  var argsTag = '[object Arguments]',
 	      arrayTag = '[object Array]',
+	      asyncTag = '[object AsyncFunction]',
 	      boolTag = '[object Boolean]',
 	      dateTag = '[object Date]',
+	      domExcTag = '[object DOMException]',
 	      errorTag = '[object Error]',
 	      funcTag = '[object Function]',
 	      genTag = '[object GeneratorFunction]',
 	      mapTag = '[object Map]',
 	      numberTag = '[object Number]',
+	      nullTag = '[object Null]',
 	      objectTag = '[object Object]',
 	      promiseTag = '[object Promise]',
 	      proxyTag = '[object Proxy]',
@@ -391,6 +436,7 @@
 	      setTag = '[object Set]',
 	      stringTag = '[object String]',
 	      symbolTag = '[object Symbol]',
+	      undefinedTag = '[object Undefined]',
 	      weakMapTag = '[object WeakMap]',
 	      weakSetTag = '[object WeakSet]';
 	
@@ -516,13 +562,15 @@
 	      rsZWJ = '\\u200d';
 	
 	  /** Used to compose unicode regexes. */
-	  var rsLowerMisc = '(?:' + rsLower + '|' + rsMisc + ')',
-	      rsUpperMisc = '(?:' + rsUpper + '|' + rsMisc + ')',
-	      rsOptLowerContr = '(?:' + rsApos + '(?:d|ll|m|re|s|t|ve))?',
-	      rsOptUpperContr = '(?:' + rsApos + '(?:D|LL|M|RE|S|T|VE))?',
+	  var rsMiscLower = '(?:' + rsLower + '|' + rsMisc + ')',
+	      rsMiscUpper = '(?:' + rsUpper + '|' + rsMisc + ')',
+	      rsOptContrLower = '(?:' + rsApos + '(?:d|ll|m|re|s|t|ve))?',
+	      rsOptContrUpper = '(?:' + rsApos + '(?:D|LL|M|RE|S|T|VE))?',
 	      reOptMod = rsModifier + '?',
 	      rsOptVar = '[' + rsVarRange + ']?',
 	      rsOptJoin = '(?:' + rsZWJ + '(?:' + [rsNonAstral, rsRegional, rsSurrPair].join('|') + ')' + rsOptVar + reOptMod + ')*',
+	      rsOrdLower = '\\d*(?:(?:1st|2nd|3rd|(?![123])\\dth)\\b)',
+	      rsOrdUpper = '\\d*(?:(?:1ST|2ND|3RD|(?![123])\\dTH)\\b)',
 	      rsSeq = rsOptVar + reOptMod + rsOptJoin,
 	      rsEmoji = '(?:' + [rsDingbat, rsRegional, rsSurrPair].join('|') + ')' + rsSeq,
 	      rsSymbol = '(?:' + [rsNonAstral + rsCombo + '?', rsCombo, rsRegional, rsSurrPair, rsAstral].join('|') + ')';
@@ -541,10 +589,12 @@
 	
 	  /** Used to match complex or compound words. */
 	  var reUnicodeWord = RegExp([
-	    rsUpper + '?' + rsLower + '+' + rsOptLowerContr + '(?=' + [rsBreak, rsUpper, '$'].join('|') + ')',
-	    rsUpperMisc + '+' + rsOptUpperContr + '(?=' + [rsBreak, rsUpper + rsLowerMisc, '$'].join('|') + ')',
-	    rsUpper + '?' + rsLowerMisc + '+' + rsOptLowerContr,
-	    rsUpper + '+' + rsOptUpperContr,
+	    rsUpper + '?' + rsLower + '+' + rsOptContrLower + '(?=' + [rsBreak, rsUpper, '$'].join('|') + ')',
+	    rsMiscUpper + '+' + rsOptContrUpper + '(?=' + [rsBreak, rsUpper + rsMiscLower, '$'].join('|') + ')',
+	    rsUpper + '?' + rsMiscLower + '+' + rsOptContrLower,
+	    rsUpper + '+' + rsOptContrUpper,
+	    rsOrdUpper,
+	    rsOrdLower,
 	    rsDigits,
 	    rsEmoji
 	  ].join('|'), 'g');
@@ -787,7 +837,7 @@
 	   */
 	  function arrayAggregator(array, setter, iteratee, accumulator) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    while (++index < length) {
 	      var value = array[index];
@@ -807,7 +857,7 @@
 	   */
 	  function arrayEach(array, iteratee) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    while (++index < length) {
 	      if (iteratee(array[index], index, array) === false) {
@@ -827,7 +877,7 @@
 	   * @returns {Array} Returns `array`.
 	   */
 	  function arrayEachRight(array, iteratee) {
-	    var length = array ? array.length : 0;
+	    var length = array == null ? 0 : array.length;
 	
 	    while (length--) {
 	      if (iteratee(array[length], length, array) === false) {
@@ -849,7 +899,7 @@
 	   */
 	  function arrayEvery(array, predicate) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    while (++index < length) {
 	      if (!predicate(array[index], index, array)) {
@@ -870,7 +920,7 @@
 	   */
 	  function arrayFilter(array, predicate) {
 	    var index = -1,
-	        length = array ? array.length : 0,
+	        length = array == null ? 0 : array.length,
 	        resIndex = 0,
 	        result = [];
 	
@@ -893,7 +943,7 @@
 	   * @returns {boolean} Returns `true` if `target` is found, else `false`.
 	   */
 	  function arrayIncludes(array, value) {
-	    var length = array ? array.length : 0;
+	    var length = array == null ? 0 : array.length;
 	    return !!length && baseIndexOf(array, value, 0) > -1;
 	  }
 	
@@ -908,7 +958,7 @@
 	   */
 	  function arrayIncludesWith(array, value, comparator) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    while (++index < length) {
 	      if (comparator(value, array[index])) {
@@ -929,7 +979,7 @@
 	   */
 	  function arrayMap(array, iteratee) {
 	    var index = -1,
-	        length = array ? array.length : 0,
+	        length = array == null ? 0 : array.length,
 	        result = Array(length);
 	
 	    while (++index < length) {
@@ -971,7 +1021,7 @@
 	   */
 	  function arrayReduce(array, iteratee, accumulator, initAccum) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    if (initAccum && length) {
 	      accumulator = array[++index];
@@ -995,7 +1045,7 @@
 	   * @returns {*} Returns the accumulated value.
 	   */
 	  function arrayReduceRight(array, iteratee, accumulator, initAccum) {
-	    var length = array ? array.length : 0;
+	    var length = array == null ? 0 : array.length;
 	    if (initAccum && length) {
 	      accumulator = array[--length];
 	    }
@@ -1017,7 +1067,7 @@
 	   */
 	  function arraySome(array, predicate) {
 	    var index = -1,
-	        length = array ? array.length : 0;
+	        length = array == null ? 0 : array.length;
 	
 	    while (++index < length) {
 	      if (predicate(array[index], index, array)) {
@@ -1161,7 +1211,7 @@
 	   * @returns {number} Returns the mean.
 	   */
 	  function baseMean(array, iteratee) {
-	    var length = array ? array.length : 0;
+	    var length = array == null ? 0 : array.length;
 	    return length ? (baseSum(array, iteratee) / length) : NAN;
 	  }
 	
@@ -1701,7 +1751,7 @@
 	   * var defer = _.runInContext({ 'setTimeout': setImmediate }).defer;
 	   */
 	  var runInContext = (function runInContext(context) {
-	    context = context ? _.defaults(root.Object(), context, _.pick(root, contextProps)) : root;
+	    context = context == null ? root : _.defaults(root.Object(), context, _.pick(root, contextProps));
 	
 	    /** Built-in constructor references. */
 	    var Array = context.Array,
@@ -1722,12 +1772,6 @@
 	    /** Used to detect overreaching core-js shims. */
 	    var coreJsData = context['__core-js_shared__'];
 	
-	    /** Used to detect methods masquerading as native. */
-	    var maskSrcKey = (function() {
-	      var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
-	      return uid ? ('Symbol(src)_1.' + uid) : '';
-	    }());
-	
 	    /** Used to resolve the decompiled source of functions. */
 	    var funcToString = funcProto.toString;
 	
@@ -1737,15 +1781,21 @@
 	    /** Used to generate unique IDs. */
 	    var idCounter = 0;
 	
-	    /** Used to infer the `Object` constructor. */
-	    var objectCtorString = funcToString.call(Object);
+	    /** Used to detect methods masquerading as native. */
+	    var maskSrcKey = (function() {
+	      var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+	      return uid ? ('Symbol(src)_1.' + uid) : '';
+	    }());
 	
 	    /**
 	     * Used to resolve the
 	     * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
 	     * of values.
 	     */
-	    var objectToString = objectProto.toString;
+	    var nativeObjectToString = objectProto.toString;
+	
+	    /** Used to infer the `Object` constructor. */
+	    var objectCtorString = funcToString.call(Object);
 	
 	    /** Used to restore the original `_` reference in `_.noConflict`. */
 	    var oldDash = root._;
@@ -1762,11 +1812,12 @@
 	        Uint8Array = context.Uint8Array,
 	        allocUnsafe = Buffer ? Buffer.allocUnsafe : undefined,
 	        getPrototype = overArg(Object.getPrototypeOf, Object),
-	        iteratorSymbol = Symbol ? Symbol.iterator : undefined,
 	        objectCreate = Object.create,
 	        propertyIsEnumerable = objectProto.propertyIsEnumerable,
 	        splice = arrayProto.splice,
-	        spreadableSymbol = Symbol ? Symbol.isConcatSpreadable : undefined;
+	        spreadableSymbol = Symbol ? Symbol.isConcatSpreadable : undefined,
+	        symIterator = Symbol ? Symbol.iterator : undefined,
+	        symToStringTag = Symbol ? Symbol.toStringTag : undefined;
 	
 	    var defineProperty = (function() {
 	      try {
@@ -2200,7 +2251,7 @@
 	     */
 	    function Hash(entries) {
 	      var index = -1,
-	          length = entries ? entries.length : 0;
+	          length = entries == null ? 0 : entries.length;
 	
 	      this.clear();
 	      while (++index < length) {
@@ -2304,7 +2355,7 @@
 	     */
 	    function ListCache(entries) {
 	      var index = -1,
-	          length = entries ? entries.length : 0;
+	          length = entries == null ? 0 : entries.length;
 	
 	      this.clear();
 	      while (++index < length) {
@@ -2421,7 +2472,7 @@
 	     */
 	    function MapCache(entries) {
 	      var index = -1,
-	          length = entries ? entries.length : 0;
+	          length = entries == null ? 0 : entries.length;
 	
 	      this.clear();
 	      while (++index < length) {
@@ -2525,7 +2576,7 @@
 	     */
 	    function SetCache(values) {
 	      var index = -1,
-	          length = values ? values.length : 0;
+	          length = values == null ? 0 : values.length;
 	
 	      this.__data__ = new MapCache;
 	      while (++index < length) {
@@ -2872,12 +2923,12 @@
 	     */
 	    function baseAt(object, paths) {
 	      var index = -1,
-	          isNil = object == null,
 	          length = paths.length,
-	          result = Array(length);
+	          result = Array(length),
+	          skip = object == null;
 	
 	      while (++index < length) {
-	        result[index] = isNil ? undefined : get(object, paths[index]);
+	        result[index] = skip ? undefined : get(object, paths[index]);
 	      }
 	      return result;
 	    }
@@ -3067,7 +3118,7 @@
 	      outer:
 	      while (++index < length) {
 	        var value = array[index],
-	            computed = iteratee ? iteratee(value) : value;
+	            computed = iteratee == null ? value : iteratee(value);
 	
 	        value = (comparator || value !== 0) ? value : 0;
 	        if (isCommon && computed === computed) {
@@ -3334,14 +3385,20 @@
 	    }
 	
 	    /**
-	     * The base implementation of `getTag`.
+	     * The base implementation of `getTag` without fallbacks for buggy environments.
 	     *
 	     * @private
 	     * @param {*} value The value to query.
 	     * @returns {string} Returns the `toStringTag`.
 	     */
 	    function baseGetTag(value) {
-	      return objectToString.call(value);
+	      if (value == null) {
+	        return value === undefined ? undefinedTag : nullTag;
+	      }
+	      value = Object(value);
+	      return (symToStringTag && symToStringTag in value)
+	        ? getRawTag(value)
+	        : objectToString(value);
 	    }
 	
 	    /**
@@ -3503,7 +3560,7 @@
 	     * @returns {boolean} Returns `true` if `value` is an `arguments` object,
 	     */
 	    function baseIsArguments(value) {
-	      return isObjectLike(value) && objectToString.call(value) == argsTag;
+	      return isObjectLike(value) && baseGetTag(value) == argsTag;
 	    }
 	
 	    /**
@@ -3514,7 +3571,7 @@
 	     * @returns {boolean} Returns `true` if `value` is an array buffer, else `false`.
 	     */
 	    function baseIsArrayBuffer(value) {
-	      return isObjectLike(value) && objectToString.call(value) == arrayBufferTag;
+	      return isObjectLike(value) && baseGetTag(value) == arrayBufferTag;
 	    }
 	
 	    /**
@@ -3525,7 +3582,7 @@
 	     * @returns {boolean} Returns `true` if `value` is a date object, else `false`.
 	     */
 	    function baseIsDate(value) {
-	      return isObjectLike(value) && objectToString.call(value) == dateTag;
+	      return isObjectLike(value) && baseGetTag(value) == dateTag;
 	    }
 	
 	    /**
@@ -3707,7 +3764,7 @@
 	     * @returns {boolean} Returns `true` if `value` is a regexp, else `false`.
 	     */
 	    function baseIsRegExp(value) {
-	      return isObject(value) && objectToString.call(value) == regexpTag;
+	      return isObjectLike(value) && baseGetTag(value) == regexpTag;
 	    }
 	
 	    /**
@@ -3730,7 +3787,7 @@
 	     */
 	    function baseIsTypedArray(value) {
 	      return isObjectLike(value) &&
-	        isLength(value.length) && !!typedArrayTags[objectToString.call(value)];
+	        isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
 	    }
 	
 	    /**
@@ -4391,7 +4448,7 @@
 	     */
 	    function baseSortedIndex(array, value, retHighest) {
 	      var low = 0,
-	          high = array ? array.length : low;
+	          high = array == null ? low : array.length;
 	
 	      if (typeof value == 'number' && value === value && high <= HALF_MAX_ARRAY_LENGTH) {
 	        while (low < high) {
@@ -4427,7 +4484,7 @@
 	      value = iteratee(value);
 	
 	      var low = 0,
-	          high = array ? array.length : 0,
+	          high = array == null ? 0 : array.length,
 	          valIsNaN = value !== value,
 	          valIsNull = value === null,
 	          valIsSymbol = isSymbol(value),
@@ -4677,18 +4734,24 @@
 	     * @returns {Array} Returns the new array of values.
 	     */
 	    function baseXor(arrays, iteratee, comparator) {
+	      var length = arrays.length;
+	      if (length < 2) {
+	        return length ? baseUniq(arrays[0]) : [];
+	      }
 	      var index = -1,
-	          length = arrays.length;
+	          result = Array(length);
 	
 	      while (++index < length) {
-	        var result = result
-	          ? arrayPush(
-	              baseDifference(result, arrays[index], iteratee, comparator),
-	              baseDifference(arrays[index], result, iteratee, comparator)
-	            )
-	          : arrays[index];
+	        var array = arrays[index],
+	            othIndex = -1;
+	
+	        while (++othIndex < length) {
+	          if (othIndex != index) {
+	            result[index] = baseDifference(result[index] || array, arrays[othIndex], iteratee, comparator);
+	          }
+	        }
 	      }
-	      return (result && result.length) ? baseUniq(result, iteratee, comparator) : [];
+	      return baseUniq(baseFlatten(result, 1), iteratee, comparator);
 	    }
 	
 	    /**
@@ -6226,6 +6289,33 @@
 	    }
 	
 	    /**
+	     * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+	     *
+	     * @private
+	     * @param {*} value The value to query.
+	     * @returns {string} Returns the raw `toStringTag`.
+	     */
+	    function getRawTag(value) {
+	      var isOwn = hasOwnProperty.call(value, symToStringTag),
+	          tag = value[symToStringTag];
+	
+	      try {
+	        value[symToStringTag] = undefined;
+	        var unmasked = true;
+	      } catch (e) {}
+	
+	      var result = nativeObjectToString.call(value);
+	      if (unmasked) {
+	        if (isOwn) {
+	          value[symToStringTag] = tag;
+	        } else {
+	          delete value[symToStringTag];
+	        }
+	      }
+	      return result;
+	    }
+	
+	    /**
 	     * Creates an array of the own enumerable symbol properties of `object`.
 	     *
 	     * @private
@@ -6267,9 +6357,9 @@
 	        (Set && getTag(new Set) != setTag) ||
 	        (WeakMap && getTag(new WeakMap) != weakMapTag)) {
 	      getTag = function(value) {
-	        var result = objectToString.call(value),
+	        var result = baseGetTag(value),
 	            Ctor = result == objectTag ? value.constructor : undefined,
-	            ctorString = Ctor ? toSource(Ctor) : undefined;
+	            ctorString = Ctor ? toSource(Ctor) : '';
 	
 	        if (ctorString) {
 	          switch (ctorString) {
@@ -6350,7 +6440,7 @@
 	      if (result || ++index != length) {
 	        return result;
 	      }
-	      length = object ? object.length : 0;
+	      length = object == null ? 0 : object.length;
 	      return !!length && isLength(length) && isIndex(key, length) &&
 	        (isArray(object) || isArguments(object));
 	    }
@@ -6762,6 +6852,17 @@
 	    }
 	
 	    /**
+	     * Converts `value` to a string using `Object.prototype.toString`.
+	     *
+	     * @private
+	     * @param {*} value The value to convert.
+	     * @returns {string} Returns the converted string.
+	     */
+	    function objectToString(value) {
+	      return nativeObjectToString.call(value);
+	    }
+	
+	    /**
 	     * A specialized version of `baseRest` which transforms the rest array.
 	     *
 	     * @private
@@ -6971,7 +7072,7 @@
 	     * Converts `func` to its source code.
 	     *
 	     * @private
-	     * @param {Function} func The function to process.
+	     * @param {Function} func The function to convert.
 	     * @returns {string} Returns the source code.
 	     */
 	    function toSource(func) {
@@ -7051,7 +7152,7 @@
 	      } else {
 	        size = nativeMax(toInteger(size), 0);
 	      }
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length || size < 1) {
 	        return [];
 	      }
@@ -7082,7 +7183,7 @@
 	     */
 	    function compact(array) {
 	      var index = -1,
-	          length = array ? array.length : 0,
+	          length = array == null ? 0 : array.length,
 	          resIndex = 0,
 	          result = [];
 	
@@ -7254,7 +7355,7 @@
 	     * // => [1, 2, 3]
 	     */
 	    function drop(array, n, guard) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -7288,7 +7389,7 @@
 	     * // => [1, 2, 3]
 	     */
 	    function dropRight(array, n, guard) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -7348,8 +7449,7 @@
 	     * @since 3.0.0
 	     * @category Array
 	     * @param {Array} array The array to query.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the slice of `array`.
 	     * @example
 	     *
@@ -7410,7 +7510,7 @@
 	     * // => [4, '*', '*', 10]
 	     */
 	    function fill(array, value, start, end) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -7430,8 +7530,7 @@
 	     * @since 1.1.0
 	     * @category Array
 	     * @param {Array} array The array to inspect.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @param {number} [fromIndex=0] The index to search from.
 	     * @returns {number} Returns the index of the found element, else `-1`.
 	     * @example
@@ -7458,7 +7557,7 @@
 	     * // => 2
 	     */
 	    function findIndex(array, predicate, fromIndex) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return -1;
 	      }
@@ -7478,8 +7577,7 @@
 	     * @since 2.0.0
 	     * @category Array
 	     * @param {Array} array The array to inspect.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @param {number} [fromIndex=array.length-1] The index to search from.
 	     * @returns {number} Returns the index of the found element, else `-1`.
 	     * @example
@@ -7506,7 +7604,7 @@
 	     * // => 0
 	     */
 	    function findLastIndex(array, predicate, fromIndex) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return -1;
 	      }
@@ -7535,7 +7633,7 @@
 	     * // => [1, 2, [3, [4]], 5]
 	     */
 	    function flatten(array) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      return length ? baseFlatten(array, 1) : [];
 	    }
 	
@@ -7554,7 +7652,7 @@
 	     * // => [1, 2, 3, 4, 5]
 	     */
 	    function flattenDeep(array) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      return length ? baseFlatten(array, INFINITY) : [];
 	    }
 	
@@ -7579,7 +7677,7 @@
 	     * // => [1, 2, 3, [4], 5]
 	     */
 	    function flattenDepth(array, depth) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -7604,7 +7702,7 @@
 	     */
 	    function fromPairs(pairs) {
 	      var index = -1,
-	          length = pairs ? pairs.length : 0,
+	          length = pairs == null ? 0 : pairs.length,
 	          result = {};
 	
 	      while (++index < length) {
@@ -7660,7 +7758,7 @@
 	     * // => 3
 	     */
 	    function indexOf(array, value, fromIndex) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return -1;
 	      }
@@ -7686,7 +7784,7 @@
 	     * // => [1, 2]
 	     */
 	    function initial(array) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      return length ? baseSlice(array, 0, -1) : [];
 	    }
 	
@@ -7776,9 +7874,8 @@
 	      var comparator = last(arrays),
 	          mapped = arrayMap(arrays, castArrayLikeObject);
 	
-	      if (comparator === last(mapped)) {
-	        comparator = undefined;
-	      } else {
+	      comparator = typeof comparator == 'function' ? comparator : undefined;
+	      if (comparator) {
 	        mapped.pop();
 	      }
 	      return (mapped.length && mapped[0] === arrays[0])
@@ -7802,7 +7899,7 @@
 	     * // => 'a~b~c'
 	     */
 	    function join(array, separator) {
-	      return array ? nativeJoin.call(array, separator) : '';
+	      return array == null ? '' : nativeJoin.call(array, separator);
 	    }
 	
 	    /**
@@ -7820,7 +7917,7 @@
 	     * // => 3
 	     */
 	    function last(array) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      return length ? array[length - 1] : undefined;
 	    }
 	
@@ -7846,7 +7943,7 @@
 	     * // => 1
 	     */
 	    function lastIndexOf(array, value, fromIndex) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return -1;
 	      }
@@ -7949,8 +8046,7 @@
 	     * @category Array
 	     * @param {Array} array The array to modify.
 	     * @param {Array} values The values to remove.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {Array} Returns `array`.
 	     * @example
 	     *
@@ -8020,7 +8116,7 @@
 	     * // => ['b', 'd']
 	     */
 	    var pullAt = flatRest(function(array, indexes) {
-	      var length = array ? array.length : 0,
+	      var length = array == null ? 0 : array.length,
 	          result = baseAt(array, indexes);
 	
 	      basePullAt(array, arrayMap(indexes, function(index) {
@@ -8043,8 +8139,7 @@
 	     * @since 2.0.0
 	     * @category Array
 	     * @param {Array} array The array to modify.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the new array of removed elements.
 	     * @example
 	     *
@@ -8104,7 +8199,7 @@
 	     * // => [3, 2, 1]
 	     */
 	    function reverse(array) {
-	      return array ? nativeReverse.call(array) : array;
+	      return array == null ? array : nativeReverse.call(array);
 	    }
 	
 	    /**
@@ -8124,7 +8219,7 @@
 	     * @returns {Array} Returns the slice of `array`.
 	     */
 	    function slice(array, start, end) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -8171,8 +8266,7 @@
 	     * @category Array
 	     * @param {Array} array The sorted array to inspect.
 	     * @param {*} value The value to evaluate.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {number} Returns the index at which `value` should be inserted
 	     *  into `array`.
 	     * @example
@@ -8207,7 +8301,7 @@
 	     * // => 1
 	     */
 	    function sortedIndexOf(array, value) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (length) {
 	        var index = baseSortedIndex(array, value);
 	        if (index < length && eq(array[index], value)) {
@@ -8250,8 +8344,7 @@
 	     * @category Array
 	     * @param {Array} array The sorted array to inspect.
 	     * @param {*} value The value to evaluate.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {number} Returns the index at which `value` should be inserted
 	     *  into `array`.
 	     * @example
@@ -8286,7 +8379,7 @@
 	     * // => 3
 	     */
 	    function sortedLastIndexOf(array, value) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (length) {
 	        var index = baseSortedIndex(array, value, true) - 1;
 	        if (eq(array[index], value)) {
@@ -8354,7 +8447,7 @@
 	     * // => [2, 3]
 	     */
 	    function tail(array) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      return length ? baseSlice(array, 1, length) : [];
 	    }
 	
@@ -8417,7 +8510,7 @@
 	     * // => []
 	     */
 	    function takeRight(array, n, guard) {
-	      var length = array ? array.length : 0;
+	      var length = array == null ? 0 : array.length;
 	      if (!length) {
 	        return [];
 	      }
@@ -8436,8 +8529,7 @@
 	     * @since 3.0.0
 	     * @category Array
 	     * @param {Array} array The array to query.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the slice of `array`.
 	     * @example
 	     *
@@ -8478,8 +8570,7 @@
 	     * @since 3.0.0
 	     * @category Array
 	     * @param {Array} array The array to query.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the slice of `array`.
 	     * @example
 	     *
@@ -8542,8 +8633,7 @@
 	     * @since 4.0.0
 	     * @category Array
 	     * @param {...Array} [arrays] The arrays to inspect.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {Array} Returns the new array of combined values.
 	     * @example
 	     *
@@ -8585,9 +8675,7 @@
 	     */
 	    var unionWith = baseRest(function(arrays) {
 	      var comparator = last(arrays);
-	      if (isArrayLikeObject(comparator)) {
-	        comparator = undefined;
-	      }
+	      comparator = typeof comparator == 'function' ? comparator : undefined;
 	      return baseUniq(baseFlatten(arrays, 1, isArrayLikeObject, true), undefined, comparator);
 	    });
 	
@@ -8610,9 +8698,7 @@
 	     * // => [2, 1]
 	     */
 	    function uniq(array) {
-	      return (array && array.length)
-	        ? baseUniq(array)
-	        : [];
+	      return (array && array.length) ? baseUniq(array) : [];
 	    }
 	
 	    /**
@@ -8627,8 +8713,7 @@
 	     * @since 4.0.0
 	     * @category Array
 	     * @param {Array} array The array to inspect.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {Array} Returns the new duplicate free array.
 	     * @example
 	     *
@@ -8640,9 +8725,7 @@
 	     * // => [{ 'x': 1 }, { 'x': 2 }]
 	     */
 	    function uniqBy(array, iteratee) {
-	      return (array && array.length)
-	        ? baseUniq(array, getIteratee(iteratee, 2))
-	        : [];
+	      return (array && array.length) ? baseUniq(array, getIteratee(iteratee, 2)) : [];
 	    }
 	
 	    /**
@@ -8666,9 +8749,8 @@
 	     * // => [{ 'x': 1, 'y': 2 }, { 'x': 2, 'y': 1 }]
 	     */
 	    function uniqWith(array, comparator) {
-	      return (array && array.length)
-	        ? baseUniq(array, undefined, comparator)
-	        : [];
+	      comparator = typeof comparator == 'function' ? comparator : undefined;
+	      return (array && array.length) ? baseUniq(array, undefined, comparator) : [];
 	    }
 	
 	    /**
@@ -8800,8 +8882,7 @@
 	     * @since 4.0.0
 	     * @category Array
 	     * @param {...Array} [arrays] The arrays to inspect.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee invoked per element.
+	     * @param {Function} [iteratee=_.identity] The iteratee invoked per element.
 	     * @returns {Array} Returns the new array of filtered values.
 	     * @example
 	     *
@@ -8843,9 +8924,7 @@
 	     */
 	    var xorWith = baseRest(function(arrays) {
 	      var comparator = last(arrays);
-	      if (isArrayLikeObject(comparator)) {
-	        comparator = undefined;
-	      }
+	      comparator = typeof comparator == 'function' ? comparator : undefined;
 	      return baseXor(arrayFilter(arrays, isArrayLikeObject), undefined, comparator);
 	    });
 	
@@ -8916,7 +8995,8 @@
 	     * @since 3.8.0
 	     * @category Array
 	     * @param {...Array} [arrays] The arrays to process.
-	     * @param {Function} [iteratee=_.identity] The function to combine grouped values.
+	     * @param {Function} [iteratee=_.identity] The function to combine
+	     *  grouped values.
 	     * @returns {Array} Returns the new array of grouped elements.
 	     * @example
 	     *
@@ -9293,8 +9373,7 @@
 	     * @since 0.5.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee to transform keys.
+	     * @param {Function} [iteratee=_.identity] The iteratee to transform keys.
 	     * @returns {Object} Returns the composed aggregate object.
 	     * @example
 	     *
@@ -9328,8 +9407,7 @@
 	     * @since 0.1.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @param- {Object} [guard] Enables use as an iteratee for methods like `_.map`.
 	     * @returns {boolean} Returns `true` if all elements pass the predicate check,
 	     *  else `false`.
@@ -9375,8 +9453,7 @@
 	     * @since 0.1.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the new filtered array.
 	     * @see _.reject
 	     * @example
@@ -9416,8 +9493,7 @@
 	     * @since 0.1.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to inspect.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @param {number} [fromIndex=0] The index to search from.
 	     * @returns {*} Returns the matched element, else `undefined`.
 	     * @example
@@ -9454,8 +9530,7 @@
 	     * @since 2.0.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to inspect.
-	     * @param {Function} [predicate=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [predicate=_.identity] The function invoked per iteration.
 	     * @param {number} [fromIndex=collection.length-1] The index to search from.
 	     * @returns {*} Returns the matched element, else `undefined`.
 	     * @example
@@ -9477,8 +9552,7 @@
 	     * @since 4.0.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [iteratee=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the new flattened array.
 	     * @example
 	     *
@@ -9502,8 +9576,7 @@
 	     * @since 4.7.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [iteratee=_.identity] The function invoked per iteration.
 	     * @returns {Array} Returns the new flattened array.
 	     * @example
 	     *
@@ -9527,8 +9600,7 @@
 	     * @since 4.7.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The function invoked per iteration.
+	     * @param {Function} [iteratee=_.identity] The function invoked per iteration.
 	     * @param {number} [depth=1] The maximum recursion depth.
 	     * @returns {Array} Returns the new flattened array.
 	     * @example
@@ -9617,8 +9689,7 @@
 	     * @since 0.1.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee to transform keys.
+	     * @param {Function} [iteratee=_.identity] The iteratee to transform keys.
 	     * @returns {Object} Returns the composed aggregate object.
 	     * @example
 	     *
@@ -9727,8 +9798,7 @@
 	     * @since 4.0.0
 	     * @category Collection
 	     * @param {Array|Object} collection The collection to iterate over.
-	     * @param {Function} [iteratee=_.identity]
-	     *  The iteratee to transform keys.
+	     * @param {Function} [iteratee=_.identity] The iteratee to transform keys.
 	     * @returns {Object} Returns the composed aggregate object.
 	     * @example
 	     *
@@ -10743,7 +10813,7 @@
 	     * function. Its creation may be customized by replacing the `_.memoize.Cache`
 	     * constructor with one whose instances implement the
 	     * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
-	     * method interface of `delete`, `get`, `has`, and `set`.
+	     * method interface of `clear`, `delete`, `get`, `has`, and `set`.
 	     *
 	     * @static
 	     * @memberOf _
@@ -10777,7 +10847,7 @@
 	     * _.memoize.Cache = WeakMap;
 	     */
 	    function memoize(func, resolver) {
-	      if (typeof func != 'function' || (resolver && typeof resolver != 'function')) {
+	      if (typeof func != 'function' || (resolver != null && typeof resolver != 'function')) {
 	        throw new TypeError(FUNC_ERROR_TEXT);
 	      }
 	      var memoized = function() {
@@ -11193,8 +11263,7 @@
 	     * // => '<p>fred, barney, &amp; pebbles</p>'
 	     */
 	    function wrap(value, wrapper) {
-	      wrapper = wrapper == null ? identity : wrapper;
-	      return partial(wrapper, value);
+	      return partial(castFunction(wrapper), value);
 	    }
 	
 	    /*------------------------------------------------------------------------*/
@@ -11302,6 +11371,7 @@
 	     * // => 0
 	     */
 	    function cloneWith(value, customizer) {
+	      customizer = typeof customizer == 'function' ? customizer : undefined;
 	      return baseClone(value, false, true, customizer);
 	    }
 	
@@ -11356,6 +11426,7 @@
 	     * // => 20
 	     */
 	    function cloneDeepWith(value, customizer) {
+	      customizer = typeof customizer == 'function' ? customizer : undefined;
 	      return baseClone(value, true, true, customizer);
 	    }
 	
@@ -11619,7 +11690,7 @@
 	     */
 	    function isBoolean(value) {
 	      return value === true || value === false ||
-	        (isObjectLike(value) && objectToString.call(value) == boolTag);
+	        (isObjectLike(value) && baseGetTag(value) == boolTag);
 	    }
 	
 	    /**
@@ -11678,7 +11749,7 @@
 	     * // => false
 	     */
 	    function isElement(value) {
-	      return value != null && value.nodeType === 1 && isObjectLike(value) && !isPlainObject(value);
+	      return isObjectLike(value) && value.nodeType === 1 && !isPlainObject(value);
 	    }
 	
 	    /**
@@ -11715,6 +11786,9 @@
 	     * // => false
 	     */
 	    function isEmpty(value) {
+	      if (value == null) {
+	        return true;
+	      }
 	      if (isArrayLike(value) &&
 	          (isArray(value) || typeof value == 'string' || typeof value.splice == 'function' ||
 	            isBuffer(value) || isTypedArray(value) || isArguments(value))) {
@@ -11827,8 +11901,9 @@
 	      if (!isObjectLike(value)) {
 	        return false;
 	      }
-	      return (objectToString.call(value) == errorTag) ||
-	        (typeof value.message == 'string' && typeof value.name == 'string');
+	      var tag = baseGetTag(value);
+	      return tag == errorTag || tag == domExcTag ||
+	        (typeof value.message == 'string' && typeof value.name == 'string' && !isPlainObject(value));
 	    }
 	
 	    /**
@@ -11879,10 +11954,13 @@
 	     * // => false
 	     */
 	    function isFunction(value) {
+	      if (!isObject(value)) {
+	        return false;
+	      }
 	      // The use of `Object#toString` avoids issues with the `typeof` operator
-	      // in Safari 9 which returns 'object' for typed array and other constructors.
-	      var tag = isObject(value) ? objectToString.call(value) : '';
-	      return tag == funcTag || tag == genTag || tag == proxyTag;
+	      // in Safari 9 which returns 'object' for typed arrays and other constructors.
+	      var tag = baseGetTag(value);
+	      return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
 	    }
 	
 	    /**
@@ -12233,7 +12311,7 @@
 	     */
 	    function isNumber(value) {
 	      return typeof value == 'number' ||
-	        (isObjectLike(value) && objectToString.call(value) == numberTag);
+	        (isObjectLike(value) && baseGetTag(value) == numberTag);
 	    }
 	
 	    /**
@@ -12265,7 +12343,7 @@
 	     * // => true
 	     */
 	    function isPlainObject(value) {
-	      if (!isObjectLike(value) || objectToString.call(value) != objectTag) {
+	      if (!isObjectLike(value) || baseGetTag(value) != objectTag) {
 	        return false;
 	      }
 	      var proto = getPrototype(value);
@@ -12273,8 +12351,8 @@
 	        return true;
 	      }
 	      var Ctor = hasOwnProperty.call(proto, 'constructor') && proto.constructor;
-	      return (typeof Ctor == 'function' &&
-	        Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString);
+	      return typeof Ctor == 'function' && Ctor instanceof Ctor &&
+	        funcToString.call(Ctor) == objectCtorString;
 	    }
 	
 	    /**
@@ -12365,7 +12443,7 @@
 	     */
 	    function isString(value) {
 	      return typeof value == 'string' ||
-	        (!isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag);
+	        (!isArray(value) && isObjectLike(value) && baseGetTag(value) == stringTag);
 	    }
 	
 	    /**
@@ -12387,7 +12465,7 @@
 	     */
 	    function isSymbol(value) {
 	      return typeof value == 'symbol' ||
-	        (isObjectLike(value) && objectToString.call(value) == symbolTag);
+	        (isObjectLike(value) && baseGetTag(value) == symbolTag);
 	    }
 	
 	    /**
@@ -12469,7 +12547,7 @@
 	     * // => false
 	     */
 	    function isWeakSet(value) {
-	      return isObjectLike(value) && objectToString.call(value) == weakSetTag;
+	      return isObjectLike(value) && baseGetTag(value) == weakSetTag;
 	    }
 	
 	    /**
@@ -12554,8 +12632,8 @@
 	      if (isArrayLike(value)) {
 	        return isString(value) ? stringToArray(value) : copyArray(value);
 	      }
-	      if (iteratorSymbol && value[iteratorSymbol]) {
-	        return iteratorToArray(value[iteratorSymbol]());
+	      if (symIterator && value[symIterator]) {
+	        return iteratorToArray(value[symIterator]());
 	      }
 	      var tag = getTag(value),
 	          func = tag == mapTag ? mapToArray : (tag == setTag ? setToArray : values);
@@ -12988,7 +13066,7 @@
 	     */
 	    function create(prototype, properties) {
 	      var result = baseCreate(prototype);
-	      return properties ? baseAssign(result, properties) : result;
+	      return properties == null ? result : baseAssign(result, properties);
 	    }
 	
 	    /**
@@ -14095,7 +14173,7 @@
 	     * // => ['h', 'i']
 	     */
 	    function values(object) {
-	      return object ? baseValues(object, keys(object)) : [];
+	      return object == null ? [] : baseValues(object, keys(object));
 	    }
 	
 	    /**
@@ -15482,7 +15560,7 @@
 	     * // => 'no match'
 	     */
 	    function cond(pairs) {
-	      var length = pairs ? pairs.length : 0,
+	      var length = pairs == null ? 0 : pairs.length,
 	          toIteratee = getIteratee();
 	
 	      pairs = !length ? [] : arrayMap(pairs, function(pair) {
@@ -17234,8 +17312,8 @@
 	    // Add lazy aliases.
 	    lodash.prototype.first = lodash.prototype.head;
 	
-	    if (iteratorSymbol) {
-	      lodash.prototype[iteratorSymbol] = wrapperToIterator;
+	    if (symIterator) {
+	      lodash.prototype[symIterator] = wrapperToIterator;
 	    }
 	    return lodash;
 	  });
@@ -19296,30 +19374,29 @@
 	;
 
 /***/ },
-/* 6 */,
-/* 7 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var pag = __webpack_require__(4);
-	var ppe = __webpack_require__(8);
+	var ppe = __webpack_require__(7);
 	var sss = __webpack_require__(5);
-	var ir = __webpack_require__(9);
-	var actor_1 = __webpack_require__(10);
-	var random_1 = __webpack_require__(13);
-	var ui = __webpack_require__(14);
+	var ir = __webpack_require__(8);
+	var actor_1 = __webpack_require__(9);
+	var random_1 = __webpack_require__(12);
+	var ui = __webpack_require__(13);
 	exports.ui = ui;
-	var screen = __webpack_require__(11);
+	var screen = __webpack_require__(10);
 	exports.screen = screen;
-	var text = __webpack_require__(12);
+	var text = __webpack_require__(11);
 	exports.text = text;
-	var debug = __webpack_require__(15);
+	var debug = __webpack_require__(14);
 	exports.debug = debug;
-	var actor_2 = __webpack_require__(10);
+	var actor_2 = __webpack_require__(9);
 	exports.Actor = actor_2.default;
-	var random_2 = __webpack_require__(13);
+	var random_2 = __webpack_require__(12);
 	exports.Random = random_2.default;
-	exports.p5 = __webpack_require__(16);
+	exports.p5 = __webpack_require__(15);
 	exports.ticks = 0;
 	exports.score = 0;
 	var options = {
@@ -19538,7 +19615,7 @@
 
 
 /***/ },
-/* 8 */
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
 	(function webpackUniversalModuleDefinition(root, factory) {
@@ -19952,7 +20029,7 @@
 	;
 
 /***/ },
-/* 9 */
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	(function webpackUniversalModuleDefinition(root, factory) {
@@ -20672,16 +20749,16 @@
 	;
 
 /***/ },
-/* 10 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var _ = __webpack_require__(2);
 	var pag = __webpack_require__(4);
-	var ppe = __webpack_require__(8);
-	var ir = __webpack_require__(9);
-	var s1 = __webpack_require__(7);
-	var screen = __webpack_require__(11);
+	var ppe = __webpack_require__(7);
+	var ir = __webpack_require__(8);
+	var s1 = __webpack_require__(6);
+	var screen = __webpack_require__(10);
 	var p5;
 	var p;
 	var rotationNum = 16;
@@ -20815,13 +20892,13 @@
 
 
 /***/ },
-/* 11 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var ppe = __webpack_require__(8);
-	var s1 = __webpack_require__(7);
-	var text = __webpack_require__(12);
+	var ppe = __webpack_require__(7);
+	var s1 = __webpack_require__(6);
+	var text = __webpack_require__(11);
 	var p5;
 	var p;
 	var backgroundColor;
@@ -20848,7 +20925,7 @@
 
 
 /***/ },
-/* 12 */
+/* 11 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -20942,11 +21019,11 @@
 
 
 /***/ },
-/* 13 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
-	var ir = __webpack_require__(9);
+	var ir = __webpack_require__(8);
 	var Random = (function () {
 	    function Random() {
 	        this.propNames = ['x', 'y', 'z', 'w'];
@@ -20998,12 +21075,12 @@
 
 
 /***/ },
-/* 14 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	var sss = __webpack_require__(5);
-	var s1 = __webpack_require__(7);
+	var s1 = __webpack_require__(6);
 	var p5;
 	exports.isPressing = false;
 	exports.isPressed = false;
@@ -21096,7 +21173,7 @@
 
 
 /***/ },
-/* 15 */
+/* 14 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -21132,7 +21209,7 @@
 
 
 /***/ },
-/* 16 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var require;var require;/*! p5.js v0.5.4 October 01, 2016 */
@@ -54166,7 +54243,7 @@
 	});
 
 /***/ },
-/* 17 */
+/* 16 */
 /***/ function(module, exports) {
 
 	var R = {}; // the Recurrent library
@@ -55704,6 +55781,1851 @@
 	
 	module.exports = RL;
 
+
+/***/ },
+/* 17 */
+/***/ function(module, exports) {
+
+	var Neuroevolution = function (options) {
+		var self = this;
+		self.options = {
+			activation: function (a) {
+				ap = (-a) / 1;
+				return (1 / (1 + Math.exp(ap)))
+			},
+			randomClamped: function () {
+				return Math.random() * 2 - 1;
+			},
+			population: 50,
+			elitism: 0.2,
+			randomBehaviour: 0.2,
+			mutationRate: 0.1,
+			mutationRange: 0.5,
+			network: [1, [1], 1],
+			historic: 0,
+			lowHistoric: false,
+			scoreSort: -1,
+			nbChild: 1
+		}
+	
+		self.set = function (options) {
+			for (var i in options) {
+				if (this.options[i] != undefined) {
+					self.options[i] = options[i];
+				}
+			}
+		}
+	
+		self.set(options);
+	
+		//NEURON
+		var Neuron = function () {
+			this.value = 0;
+			this.weights = [];
+		}
+		Neuron.prototype.populate = function (nb) {
+			this.weights = [];
+			for (var i = 0; i < nb; i++) {
+				this.weights.push(self.options.randomClamped());
+			}
+		}
+		//LAYER
+		var Layer = function (index) {
+			this.id = index || 0;
+			this.neurons = [];
+		}
+		Layer.prototype.populate = function (nbNeurons, nbInputs) {
+			this.neurons = [];
+			for (var i = 0; i < nbNeurons; i++) {
+				var n = new Neuron();
+				n.populate(nbInputs);
+				this.neurons.push(n);
+			}
+		}
+		//NETWORK
+		var Network = function () {
+			this.layers = [];
+		}
+	
+		Network.prototype.perceptronGeneration = function (input, hiddens, output) {
+			var index = 0;
+			var previousNeurons = 0;
+			var layer = new Layer(index);
+			layer.populate(input, previousNeurons);
+			previousNeurons = input;
+			this.layers.push(layer);
+			index++;
+			for (var i in hiddens) {
+				var layer = new Layer(index);
+				layer.populate(hiddens[i], previousNeurons);
+				previousNeurons = hiddens[i];
+				this.layers.push(layer);
+				index++;
+			}
+			var layer = new Layer(index);
+			layer.populate(output, previousNeurons);
+			this.layers.push(layer);
+		}
+	
+	
+		Network.prototype.getSave = function () {
+			var datas = {
+				neurons: [],
+				weights: []
+			};
+			for (var i in this.layers) {
+				datas.neurons.push(this.layers[i].neurons.length);
+				for (var j in this.layers[i].neurons) {
+					for (var k in this.layers[i].neurons[j].weights) {
+						datas.weights.push(this.layers[i].neurons[j].weights[k]);
+					}
+				}
+			}
+			return datas;
+		}
+	
+	
+		Network.prototype.setSave = function (save) {
+			var previousNeurons = 0;
+			var index = 0;
+			var indexWeights = 0;
+			this.layers = [];
+			for (var i in save.neurons) {
+				var layer = new Layer(index);
+				layer.populate(save.neurons[i], previousNeurons);
+				for (var j in layer.neurons) {
+					for (var k in layer.neurons[j].weights) {
+						layer.neurons[j].weights[k] = save.weights[indexWeights];
+						indexWeights++;
+					}
+				}
+				previousNeurons = save.neurons[i];
+				index++;
+				this.layers.push(layer);
+			}
+		}
+	
+		Network.prototype.compute = function (inputs) {
+			for (var i in inputs) {
+				if (this.layers[0] && this.layers[0].neurons[i]) {
+					this.layers[0].neurons[i].value = inputs[i];
+				}
+			}
+	
+			var prevLayer = this.layers[0];
+			for (var i = 1; i < this.layers.length; i++) {
+				for (var j in this.layers[i].neurons) {
+					var sum = 0;
+					for (var k in prevLayer.neurons) {
+						sum += prevLayer.neurons[k].value * this.layers[i].neurons[j].weights[k];
+					}
+					this.layers[i].neurons[j].value = self.options.activation(sum);
+				}
+				prevLayer = this.layers[i];
+			}
+	
+			var out = [];
+			var lastLayer = this.layers[this.layers.length - 1];
+			for (var i in lastLayer.neurons) {
+				out.push(lastLayer.neurons[i].value);
+			}
+			return out;
+		}
+		//GENOM
+		var Genome = function (score, network) {
+			this.score = score || 0;
+			this.network = network || null;
+		}
+		//GENERATION
+		var Generation = function () {
+			this.genomes = [];
+		}
+	
+		Generation.prototype.addGenome = function (genome) {
+			for (var i = 0; i < this.genomes.length; i++) {
+				if (self.options.scoreSort < 0) {
+					if (genome.score > this.genomes[i].score) {
+						break;
+					}
+				} else {
+					if (genome.score < this.genomes[i].score) {
+						break;
+					}
+				}
+	
+			}
+			this.genomes.splice(i, 0, genome);
+		}
+	
+		Generation.prototype.breed = function (g1, g2, nbChilds) {
+			var datas = [];
+			for (var nb = 0; nb < nbChilds; nb++) {
+				var data = JSON.parse(JSON.stringify(g1));
+				for (var i in g2.network.weights) {
+					if (Math.random() <= 0.5) {
+						data.network.weights[i] = g2.network.weights[i];
+					}
+				}
+	
+				for (var i in data.network.weights) {
+					if (Math.random() <= self.options.mutationRate) {
+						data.network.weights[i] += Math.random() * self.options.mutationRange * 2 - self.options.mutationRange;
+					}
+				}
+				datas.push(data);
+			}
+	
+			return datas;
+		}
+	
+		Generation.prototype.generateNextGeneration = function () {
+			var nexts = [];
+	
+			for (var i = 0; i < Math.round(self.options.elitism * self.options.population); i++) {
+				if (nexts.length < self.options.population) {
+					nexts.push(JSON.parse(JSON.stringify(this.genomes[i].network)));
+				}
+			}
+	
+			for (var i = 0; i < Math.round(self.options.randomBehaviour * self.options.population); i++) {
+				var n = JSON.parse(JSON.stringify(this.genomes[0].network));
+				for (var k in n.weights) {
+					n.weights[k] = self.options.randomClamped();
+				}
+				if (nexts.length < self.options.population) {
+					nexts.push(n);
+				}
+			}
+	
+			var max = 0;
+			while (true) {
+				for (var i = 0; i < max; i++) {
+					var childs = this.breed(this.genomes[i], this.genomes[max], (self.options.nbChild > 0 ? self.options.nbChild : 1));
+					for (var c in childs) {
+						nexts.push(childs[c].network);
+						if (nexts.length >= self.options.population) {
+							return nexts;
+						}
+					}
+				}
+				max++;
+				if (max >= this.genomes.length - 1) {
+					max = 0;
+				}
+			}
+		}
+		//GENERATIONS
+		var Generations = function () {
+			this.generations = [];
+			var currentGeneration = new Generation();
+		}
+	
+		Generations.prototype.firstGeneration = function (input, hiddens, output) {
+			var out = [];
+			for (var i = 0; i < self.options.population; i++) {
+				var nn = new Network();
+				nn.perceptronGeneration(self.options.network[0], self.options.network[1], self.options.network[2]);
+				out.push(nn.getSave());
+			}
+			this.generations.push(new Generation());
+			return out;
+		}
+	
+		Generations.prototype.nextGeneration = function () {
+			if (this.generations.length == 0) {
+				return false;
+			}
+	
+			var gen = this.generations[this.generations.length - 1].generateNextGeneration();
+			this.generations.push(new Generation());
+			return gen;
+		}
+	
+	
+		Generations.prototype.addGenome = function (genome) {
+			if (this.generations.length == 0) {
+				return false;
+			}
+	
+			return this.generations[this.generations.length - 1].addGenome(genome);
+		}
+	
+	
+		//SELF METHODS
+		self.generations = new Generations();
+	
+		self.restart = function () {
+			self.generations = new Generations();
+		}
+	
+		self.nextGeneration = function () {
+			var networks = [];
+			if (self.generations.generations.length == 0) {
+				networks = self.generations.firstGeneration();
+			} else {
+				networks = self.generations.nextGeneration();
+			}
+			var nns = [];
+			for (var i in networks) {
+				var nn = new Network();
+				nn.setSave(networks[i]);
+				nns.push(nn);
+			}
+	
+			if (self.options.lowHistoric) {
+				if (self.generations.generations.length >= 2) {
+					var genomes = self.generations.generations[self.generations.generations.length - 2].genomes;
+					for (var i in genomes) {
+						delete genomes[i].network;
+					}
+				}
+			}
+	
+			if (self.options.historic != -1) {
+				if (self.generations.generations.length > self.options.historic + 1) {
+					self.generations.generations.splice(0, self.generations.generations.length - (self.options.historic + 1));
+				}
+			}
+			return nns;
+		}
+	
+		self.networkScore = function (network, score) {
+			self.generations.addGenome(new Genome(score, network.getSave()));
+		}
+	}
+	
+	module.exports = Neuroevolution;
+
+
+/***/ },
+/* 18 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function webpackUniversalModuleDefinition(root, factory) {
+		if(true)
+			module.exports = factory();
+		else if(typeof define === 'function' && define.amd)
+			define([], factory);
+		else if(typeof exports === 'object')
+			exports["gcc"] = factory();
+		else
+			root["gcc"] = factory();
+	})(this, function() {
+	return /******/ (function(modules) { // webpackBootstrap
+	/******/ 	// The module cache
+	/******/ 	var installedModules = {};
+	
+	/******/ 	// The require function
+	/******/ 	function __webpack_require__(moduleId) {
+	
+	/******/ 		// Check if module is in cache
+	/******/ 		if(installedModules[moduleId])
+	/******/ 			return installedModules[moduleId].exports;
+	
+	/******/ 		// Create a new module (and put it into the cache)
+	/******/ 		var module = installedModules[moduleId] = {
+	/******/ 			exports: {},
+	/******/ 			id: moduleId,
+	/******/ 			loaded: false
+	/******/ 		};
+	
+	/******/ 		// Execute the module function
+	/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	
+	/******/ 		// Flag the module as loaded
+	/******/ 		module.loaded = true;
+	
+	/******/ 		// Return the exports of the module
+	/******/ 		return module.exports;
+	/******/ 	}
+	
+	
+	/******/ 	// expose the modules object (__webpack_modules__)
+	/******/ 	__webpack_require__.m = modules;
+	
+	/******/ 	// expose the module cache
+	/******/ 	__webpack_require__.c = installedModules;
+	
+	/******/ 	// __webpack_public_path__
+	/******/ 	__webpack_require__.p = "";
+	
+	/******/ 	// Load entry module and return exports
+	/******/ 	return __webpack_require__(0);
+	/******/ })
+	/************************************************************************/
+	/******/ ([
+	/* 0 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		module.exports = __webpack_require__(1);
+	
+	
+	/***/ },
+	/* 1 */
+	/***/ function(module, exports, __webpack_require__) {
+	
+		"use strict";
+		var GIFEncoder = __webpack_require__(2);
+		var options = {
+		    scale: 0.5,
+		    durationSec: 3,
+		    keyCode: 67,
+		    capturingFps: 20,
+		    appFps: 60,
+		    isAppendingImgElement: true
+		};
+		var contextsNum;
+		var contexts;
+		var isCaptured;
+		var index = 0;
+		var frameCount = 0;
+		var image = new Image();
+		function capture(element) {
+		    frameCount++;
+		    var capturePerFrame = options.appFps / options.capturingFps;
+		    if (frameCount < capturePerFrame) {
+		        return;
+		    }
+		    frameCount -= capturePerFrame;
+		    if (!contexts) {
+		        begin(element);
+		    }
+		    contexts[index].drawImage(element, 0, 0);
+		    isCaptured[index] = true;
+		    index++;
+		    if (index >= contextsNum) {
+		        index = 0;
+		    }
+		}
+		exports.capture = capture;
+		function captureSvg(svgElm) {
+		    var capturePerFrame = options.appFps / options.capturingFps;
+		    if (frameCount + 1 < capturePerFrame) {
+		        frameCount++;
+		        return;
+		    }
+		    var svgXml = new XMLSerializer().serializeToString(svgElm);
+		    image.src = "data:image/svg+xml;base64," + btoa(svgXml);
+		    capture(image);
+		}
+		exports.captureSvg = captureSvg;
+		function begin(element) {
+		    contextsNum = options.durationSec * options.capturingFps;
+		    contexts = times(contextsNum, function () {
+		        var cvs = document.createElement('canvas');
+		        cvs.width = element.width * options.scale;
+		        cvs.height = element.height * options.scale;
+		        var ctx = cvs.getContext('2d');
+		        ctx.scale(options.scale, options.scale);
+		        return ctx;
+		    });
+		    isCaptured = times(contextsNum, function () { return false; });
+		    document.addEventListener('keydown', function (e) {
+		        if (e.keyCode == options.keyCode) {
+		            end();
+		        }
+		    });
+		}
+		function end() {
+		    var encoder = new GIFEncoder();
+		    encoder.setRepeat(0);
+		    encoder.setDelay(1000 / options.capturingFps);
+		    encoder.start();
+		    var idx = index;
+		    times(contextsNum, function () {
+		        if (isCaptured[idx]) {
+		            encoder.addFrame(contexts[idx]);
+		        }
+		        idx++;
+		        if (idx >= contextsNum) {
+		            idx = 0;
+		        }
+		    });
+		    encoder.finish();
+		    var binaryGif = encoder.stream().getData();
+		    var imgElement = document.createElement('img');
+		    imgElement.src = 'data:image/gif;base64,' + encode64(binaryGif);
+		    if (options.isAppendingImgElement) {
+		        document.getElementsByTagName('body')[0].appendChild(imgElement);
+		    }
+		    return imgElement;
+		}
+		exports.end = end;
+		function times(n, func) {
+		    var result = [];
+		    for (var i = 0; i < n; i++) {
+		        result.push(func());
+		    }
+		    return result;
+		}
+		function setOptions(_options) {
+		    for (var attr in _options) {
+		        options[attr] = _options[attr];
+		    }
+		}
+		exports.setOptions = setOptions;
+		// https://github.com/antimatter15/jsgif/blob/master/b64.js
+		function encode64(input) {
+		    var output = "", i = 0, l = input.length, key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+		    while (i < l) {
+		        chr1 = input.charCodeAt(i++);
+		        chr2 = input.charCodeAt(i++);
+		        chr3 = input.charCodeAt(i++);
+		        enc1 = chr1 >> 2;
+		        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+		        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+		        enc4 = chr3 & 63;
+		        if (isNaN(chr2))
+		            enc3 = enc4 = 64;
+		        else if (isNaN(chr3))
+		            enc4 = 64;
+		        output = output + key.charAt(enc1) + key.charAt(enc2) + key.charAt(enc3) + key.charAt(enc4);
+		    }
+		    return output;
+		}
+	
+	
+	/***/ },
+	/* 2 */
+	/***/ function(module, exports) {
+	
+		/**
+		 * This class lets you encode animated GIF files
+		 * Base class :  http://www.java2s.com/Code/Java/2D-Graphics-GUI/AnimatedGifEncoder.htm
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		GIFEncoder = function () {
+	
+		  for (var i = 0, chr = {}; i < 256; i++)
+		    chr[i] = String.fromCharCode(i);
+	
+		  function ByteArray() {
+		    this.bin = [];
+		  }
+	
+		  ByteArray.prototype.getData = function () {
+		    for (var v = '', l = this.bin.length, i = 0; i < l; i++)
+		      v += chr[this.bin[i]];
+		    return v;
+		  };
+	
+		  ByteArray.prototype.writeByte = function (val) {
+		    this.bin.push(val);
+		  };
+	
+		  ByteArray.prototype.writeUTFBytes = function (string) {
+		    for (var l = string.length, i = 0; i < l; i++)
+		      this.writeByte(string.charCodeAt(i));
+		  };
+	
+		  ByteArray.prototype.writeBytes = function (array, offset, length) {
+		    for (var l = length || array.length, i = offset || 0; i < l; i++)
+		      this.writeByte(array[i]);
+		  };
+	
+		  var exports = {};
+		  var width; // image size
+		  var height;
+		  var transparent = null; // transparent color if given
+		  var transIndex; // transparent index in color table
+		  var repeat = -1; // no repeat
+		  var delay = 0; // frame delay (hundredths)
+		  var started = false; // ready to output frames
+		  var out;
+		  var image; // current frame
+		  var pixels; // BGR byte array from frame
+		  var indexedPixels; // converted frame indexed to palette
+		  var colorDepth; // number of bit planes
+		  var colorTab; // RGB palette
+		  var usedEntry = []; // active palette entries
+		  var palSize = 7; // color table size (bits-1)
+		  var dispose = -1; // disposal code (-1 = use default)
+		  var closeStream = false; // close stream when finished
+		  var firstFrame = true;
+		  var sizeSet = false; // if false, get size from first frame
+		  var sample = 10; // default sample interval for quantizer
+		  var comment = "Generated by jsgif (https://github.com/antimatter15/jsgif/)"; // default comment for generated gif
+	
+			/**
+			 * Sets the delay time between each frame, or changes it for subsequent frames
+			 * (applies to last frame added)
+			 * int delay time in milliseconds
+			 * @param ms
+			 */
+	
+		  var setDelay = exports.setDelay = function setDelay(ms) {
+		    delay = Math.round(ms / 10);
+		  };
+	
+			/**
+			 * Sets the GIF frame disposal code for the last added frame and any
+			 *
+			 * subsequent frames. Default is 0 if no transparent color has been set,
+			 * otherwise 2.
+			 * @param code
+			 * int disposal code.
+			 */
+	
+		  var setDispose = exports.setDispose = function setDispose(code) {
+		    if (code >= 0) dispose = code;
+		  };
+	
+			/**
+			 * Sets the number of times the set of GIF frames should be played. Default is
+			 * 1; 0 means play indefinitely. Must be invoked before the first image is
+			 * added.
+			 *
+			 * @param iter
+			 * int number of iterations.
+			 * @return
+			 */
+	
+		  var setRepeat = exports.setRepeat = function setRepeat(iter) {
+		    if (iter >= 0) repeat = iter;
+		  };
+	
+			/**
+			 * Sets the transparent color for the last added frame and any subsequent
+			 * frames. Since all colors are subject to modification in the quantization
+			 * process, the color in the final palette for each frame closest to the given
+			 * color becomes the transparent color for that frame. May be set to null to
+			 * indicate no transparent color.
+			 * @param
+			 * Color to be treated as transparent on display.
+			 */
+	
+		  var setTransparent = exports.setTransparent = function setTransparent(c) {
+		    transparent = c;
+		  };
+	
+	
+			/**
+			 * Sets the comment for the block comment
+			 * @param
+			 * string to be insterted as comment
+			 */
+	
+		  var setComment = exports.setComment = function setComment(c) {
+		    comment = c;
+		  };
+	
+	
+	
+			/**
+			 * The addFrame method takes an incoming BitmapData object to create each frames
+			 * @param
+			 * BitmapData object to be treated as a GIF's frame
+			 */
+	
+		  var addFrame = exports.addFrame = function addFrame(im, is_imageData) {
+	
+		    if ((im === null) || !started || out === null) {
+		      throw new Error("Please call start method before calling addFrame");
+		    }
+	
+		    var ok = true;
+	
+		    try {
+		      if (!is_imageData) {
+		        image = im.getImageData(0, 0, im.canvas.width, im.canvas.height).data;
+		        if (!sizeSet) setSize(im.canvas.width, im.canvas.height);
+		      } else {
+		        image = im;
+		      }
+		      getImagePixels(); // convert to correct format if necessary
+		      analyzePixels(); // build color table & map pixels
+	
+		      if (firstFrame) {
+		        writeLSD(); // logical screen descriptior
+		        writePalette(); // global color table
+		        if (repeat >= 0) {
+		          // use NS app extension to indicate reps
+		          writeNetscapeExt();
+		        }
+		      }
+	
+		      writeGraphicCtrlExt(); // write graphic control extension
+		      if (comment !== '') {
+		        writeCommentExt(); // write comment extension
+		      }
+		      writeImageDesc(); // image descriptor
+		      if (!firstFrame) writePalette(); // local color table
+		      writePixels(); // encode and write pixel data
+		      firstFrame = false;
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return ok;
+		  };
+	
+			/**
+			 * Adds final trailer to the GIF stream, if you don't call the finish method
+			 * the GIF stream will not be valid.
+			 */
+	
+		  var finish = exports.finish = function finish() {
+	
+		    if (!started) return false;
+	
+		    var ok = true;
+		    started = false;
+	
+		    try {
+		      out.writeByte(0x3b); // gif trailer
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return ok;
+		  };
+	
+			/**
+			 * Resets some members so that a new stream can be started.
+			 * This method is actually called by the start method
+			 */
+	
+		  var reset = function reset() {
+	
+		    // reset for subsequent use
+		    transIndex = 0;
+		    image = null;
+		    pixels = null;
+		    indexedPixels = null;
+		    colorTab = null;
+		    closeStream = false;
+		    firstFrame = true;
+		  };
+	
+			/**
+			 * * Sets frame rate in frames per second. Equivalent to
+			 * <code>setDelay(1000/fps)</code>.
+			 * @param fps
+			 * float frame rate (frames per second)
+			 */
+	
+		  var setFrameRate = exports.setFrameRate = function setFrameRate(fps) {
+		    if (fps != 0xf) delay = Math.round(100 / fps);
+		  };
+	
+			/**
+			 * Sets quality of color quantization (conversion of images to the maximum 256
+			 * colors allowed by the GIF specification). Lower values (minimum = 1)
+			 * produce better colors, but slow processing significantly. 10 is the
+			 * default, and produces good color mapping at reasonable speeds. Values
+			 * greater than 20 do not yield significant improvements in speed.
+			 * @param quality
+			 * int greater than 0.
+			 * @return
+			 */
+	
+		  var setQuality = exports.setQuality = function setQuality(quality) {
+		    if (quality < 1) quality = 1;
+		    sample = quality;
+		  };
+	
+			/**
+			 * Sets the GIF frame size. The default size is the size of the first frame
+			 * added if this method is not invoked.
+			 * @param w
+			 * int frame width.
+			 * @param h
+			 * int frame width.
+			 */
+	
+		  var setSize = exports.setSize = function setSize(w, h) {
+	
+		    if (started && !firstFrame) return;
+		    width = w;
+		    height = h;
+		    if (width < 1) width = 320;
+		    if (height < 1) height = 240;
+		    sizeSet = true;
+		  };
+	
+			/**
+			 * Initiates GIF file creation on the given stream.
+			 * @param os
+			 * OutputStream on which GIF images are written.
+			 * @return false if initial write failed.
+			 */
+	
+		  var start = exports.start = function start() {
+	
+		    reset();
+		    var ok = true;
+		    closeStream = false;
+		    out = new ByteArray();
+		    try {
+		      out.writeUTFBytes("GIF89a"); // header
+		    } catch (e) {
+		      ok = false;
+		    }
+	
+		    return started = ok;
+		  };
+	
+		  var cont = exports.cont = function cont() {
+	
+		    reset();
+		    var ok = true;
+		    closeStream = false;
+		    out = new ByteArray();
+	
+		    return started = ok;
+		  };
+	
+			/**
+			 * Analyzes image colors and creates color map.
+			 */
+	
+		  var analyzePixels = function analyzePixels() {
+	
+		    var len = pixels.length;
+		    var nPix = len / 3;
+		    indexedPixels = [];
+		    var nq = new NeuQuant(pixels, len, sample);
+	
+		    // initialize quantizer
+		    colorTab = nq.process(); // create reduced palette
+	
+		    // map image pixels to new palette
+		    var k = 0;
+		    for (var j = 0; j < nPix; j++) {
+		      var index = nq.map(pixels[k++] & 0xff, pixels[k++] & 0xff, pixels[k++] & 0xff);
+		      usedEntry[index] = true;
+		      indexedPixels[j] = index;
+		    }
+	
+		    pixels = null;
+		    colorDepth = 8;
+		    palSize = 7;
+	
+		    // get closest match to transparent color if specified
+		    if (transparent !== null) {
+		      transIndex = findClosest(transparent);
+		    }
+		  };
+	
+			/**
+			 * Returns index of palette color closest to c
+			 */
+	
+		  var findClosest = function findClosest(c) {
+	
+		    if (colorTab === null) return -1;
+		    var r = (c & 0xFF0000) >> 16;
+		    var g = (c & 0x00FF00) >> 8;
+		    var b = (c & 0x0000FF);
+		    var minpos = 0;
+		    var dmin = 256 * 256 * 256;
+		    var len = colorTab.length;
+	
+		    for (var i = 0; i < len;) {
+		      var dr = r - (colorTab[i++] & 0xff);
+		      var dg = g - (colorTab[i++] & 0xff);
+		      var db = b - (colorTab[i] & 0xff);
+		      var d = dr * dr + dg * dg + db * db;
+		      var index = i / 3;
+		      if (usedEntry[index] && (d < dmin)) {
+		        dmin = d;
+		        minpos = index;
+		      }
+		      i++;
+		    }
+		    return minpos;
+		  };
+	
+			/**
+			 * Extracts image pixels into byte array "pixels
+			 */
+	
+		  var getImagePixels = function getImagePixels() {
+		    var w = width;
+		    var h = height;
+		    pixels = [];
+		    var data = image;
+		    var count = 0;
+	
+		    for (var i = 0; i < h; i++) {
+	
+		      for (var j = 0; j < w; j++) {
+	
+		        var b = (i * w * 4) + j * 4;
+		        pixels[count++] = data[b];
+		        pixels[count++] = data[b + 1];
+		        pixels[count++] = data[b + 2];
+	
+		      }
+	
+		    }
+		  };
+	
+			/**
+			 * Writes Graphic Control Extension
+			 */
+	
+		  var writeGraphicCtrlExt = function writeGraphicCtrlExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xf9); // GCE label
+		    out.writeByte(4); // data block size
+		    var transp;
+		    var disp;
+		    if (transparent === null) {
+		      transp = 0;
+		      disp = 0; // dispose = no action
+		    } else {
+		      transp = 1;
+		      disp = 2; // force clear if using transparent color
+		    }
+		    if (dispose >= 0) {
+		      disp = dispose & 7; // user override
+		    }
+		    disp <<= 2;
+		    // packed fields
+		    out.writeByte(0 | // 1:3 reserved
+		      disp | // 4:6 disposal
+		      0 | // 7 user input - 0 = none
+		      transp); // 8 transparency flag
+	
+		    WriteShort(delay); // delay x 1/100 sec
+		    out.writeByte(transIndex); // transparent color index
+		    out.writeByte(0); // block terminator
+		  };
+	
+			/**
+			 * Writes Comment Extention
+			 */
+	
+		  var writeCommentExt = function writeCommentExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xfe); // comment label
+		    out.writeByte(comment.length); // Block Size (s)
+		    out.writeUTFBytes(comment);
+		    out.writeByte(0); // block terminator
+		  };
+	
+	
+			/**
+			 * Writes Image Descriptor
+			 */
+	
+		  var writeImageDesc = function writeImageDesc() {
+	
+		    out.writeByte(0x2c); // image separator
+		    WriteShort(0); // image position x,y = 0,0
+		    WriteShort(0);
+		    WriteShort(width); // image size
+		    WriteShort(height);
+	
+		    // packed fields
+		    if (firstFrame) {
+		      // no LCT - GCT is used for first (or only) frame
+		      out.writeByte(0);
+		    } else {
+		      // specify normal LCT
+		      out.writeByte(0x80 | // 1 local color table 1=yes
+		        0 | // 2 interlace - 0=no
+		        0 | // 3 sorted - 0=no
+		        0 | // 4-5 reserved
+		        palSize); // 6-8 size of color table
+		    }
+		  };
+	
+			/**
+			 * Writes Logical Screen Descriptor
+			 */
+	
+		  var writeLSD = function writeLSD() {
+	
+		    // logical screen size
+		    WriteShort(width);
+		    WriteShort(height);
+		    // packed fields
+		    out.writeByte((0x80 | // 1 : global color table flag = 1 (gct used)
+		      0x70 | // 2-4 : color resolution = 7
+		      0x00 | // 5 : gct sort flag = 0
+		      palSize)); // 6-8 : gct size
+	
+		    out.writeByte(0); // background color index
+		    out.writeByte(0); // pixel aspect ratio - assume 1:1
+		  };
+	
+			/**
+			 * Writes Netscape application extension to define repeat count.
+			 */
+	
+		  var writeNetscapeExt = function writeNetscapeExt() {
+		    out.writeByte(0x21); // extension introducer
+		    out.writeByte(0xff); // app extension label
+		    out.writeByte(11); // block size
+		    out.writeUTFBytes("NETSCAPE" + "2.0"); // app id + auth code
+		    out.writeByte(3); // sub-block size
+		    out.writeByte(1); // loop sub-block id
+		    WriteShort(repeat); // loop count (extra iterations, 0=repeat forever)
+		    out.writeByte(0); // block terminator
+		  };
+	
+			/**
+			 * Writes color table
+			 */
+	
+		  var writePalette = function writePalette() {
+		    out.writeBytes(colorTab);
+		    var n = (3 * 256) - colorTab.length;
+		    for (var i = 0; i < n; i++) out.writeByte(0);
+		  };
+	
+		  var WriteShort = function WriteShort(pValue) {
+		    out.writeByte(pValue & 0xFF);
+		    out.writeByte((pValue >> 8) & 0xFF);
+		  };
+	
+			/**
+			 * Encodes and writes pixel data
+			 */
+	
+		  var writePixels = function writePixels() {
+		    var myencoder = new LZWEncoder(width, height, indexedPixels, colorDepth);
+		    myencoder.encode(out);
+		  };
+	
+			/**
+			 * Retrieves the GIF stream
+			 */
+	
+		  var stream = exports.stream = function stream() {
+		    return out;
+		  };
+	
+		  var setProperties = exports.setProperties = function setProperties(has_start, is_first) {
+		    started = has_start;
+		    firstFrame = is_first;
+		  };
+	
+		  return exports;
+	
+		};
+	
+		module.exports = GIFEncoder;
+	
+		/**
+		 * This class handles LZW encoding
+		 * Adapted from Jef Poskanzer's Java port by way of J. M. G. Elliott.
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		LZWEncoder = function () {
+	
+		  var exports = {};
+		  var EOF = -1;
+		  var imgW;
+		  var imgH;
+		  var pixAry;
+		  var initCodeSize;
+		  var remaining;
+		  var curPixel;
+	
+		  // GIFCOMPR.C - GIF Image compression routines
+		  // Lempel-Ziv compression based on 'compress'. GIF modifications by
+		  // David Rowley (mgardi@watdcsu.waterloo.edu)
+		  // General DEFINEs
+	
+		  var BITS = 12;
+		  var HSIZE = 5003; // 80% occupancy
+	
+		  // GIF Image compression - modified 'compress'
+		  // Based on: compress.c - File compression ala IEEE Computer, June 1984.
+		  // By Authors: Spencer W. Thomas (decvax!harpo!utah-cs!utah-gr!thomas)
+		  // Jim McKie (decvax!mcvax!jim)
+		  // Steve Davies (decvax!vax135!petsd!peora!srd)
+		  // Ken Turkowski (decvax!decwrl!turtlevax!ken)
+		  // James A. Woods (decvax!ihnp4!ames!jaw)
+		  // Joe Orost (decvax!vax135!petsd!joe)
+	
+		  var n_bits; // number of bits/code
+		  var maxbits = BITS; // user settable max # bits/code
+		  var maxcode; // maximum code, given n_bits
+		  var maxmaxcode = 1 << BITS; // should NEVER generate this code
+		  var htab = [];
+		  var codetab = [];
+		  var hsize = HSIZE; // for dynamic table sizing
+		  var free_ent = 0; // first unused entry
+	
+		  // block compression parameters -- after all codes are used up,
+		  // and compression rate changes, start over.
+	
+		  var clear_flg = false;
+	
+		  // Algorithm: use open addressing double hashing (no chaining) on the
+		  // prefix code / next character combination. We do a variant of Knuth's
+		  // algorithm D (vol. 3, sec. 6.4) along with G. Knott's relatively-prime
+		  // secondary probe. Here, the modular division first probe is gives way
+		  // to a faster exclusive-or manipulation. Also do block compression with
+		  // an adaptive reset, whereby the code table is cleared when the compression
+		  // ratio decreases, but after the table fills. The variable-length output
+		  // codes are re-sized at this point, and a special CLEAR code is generated
+		  // for the decompressor. Late addition: construct the table according to
+		  // file size for noticeable speed improvement on small files. Please direct
+		  // questions about this implementation to ames!jaw.
+	
+		  var g_init_bits;
+		  var ClearCode;
+		  var EOFCode;
+	
+		  // output
+		  // Output the given code.
+		  // Inputs:
+		  // code: A n_bits-bit integer. If == -1, then EOF. This assumes
+		  // that n_bits =< wordsize - 1.
+		  // Outputs:
+		  // Outputs code to the file.
+		  // Assumptions:
+		  // Chars are 8 bits long.
+		  // Algorithm:
+		  // Maintain a BITS character long buffer (so that 8 codes will
+		  // fit in it exactly). Use the VAX insv instruction to insert each
+		  // code in turn. When the buffer fills up empty it and start over.
+	
+		  var cur_accum = 0;
+		  var cur_bits = 0;
+		  var masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
+	
+		  // Number of characters so far in this 'packet'
+		  var a_count;
+	
+		  // Define the storage for the packet accumulator
+		  var accum = [];
+	
+		  var LZWEncoder = exports.LZWEncoder = function LZWEncoder(width, height, pixels, color_depth) {
+		    imgW = width;
+		    imgH = height;
+		    pixAry = pixels;
+		    initCodeSize = Math.max(2, color_depth);
+		  };
+	
+		  // Add a character to the end of the current packet, and if it is 254
+		  // characters, flush the packet to disk.
+		  var char_out = function char_out(c, outs) {
+		    accum[a_count++] = c;
+		    if (a_count >= 254) flush_char(outs);
+		  };
+	
+		  // Clear out the hash table
+		  // table clear for block compress
+	
+		  var cl_block = function cl_block(outs) {
+		    cl_hash(hsize);
+		    free_ent = ClearCode + 2;
+		    clear_flg = true;
+		    output(ClearCode, outs);
+		  };
+	
+		  // reset code table
+		  var cl_hash = function cl_hash(hsize) {
+		    for (var i = 0; i < hsize; ++i) htab[i] = -1;
+		  };
+	
+		  var compress = exports.compress = function compress(init_bits, outs) {
+	
+		    var fcode;
+		    var i; /* = 0 */
+		    var c;
+		    var ent;
+		    var disp;
+		    var hsize_reg;
+		    var hshift;
+	
+		    // Set up the globals: g_init_bits - initial number of bits
+		    g_init_bits = init_bits;
+	
+		    // Set up the necessary values
+		    clear_flg = false;
+		    n_bits = g_init_bits;
+		    maxcode = MAXCODE(n_bits);
+	
+		    ClearCode = 1 << (init_bits - 1);
+		    EOFCode = ClearCode + 1;
+		    free_ent = ClearCode + 2;
+	
+		    a_count = 0; // clear packet
+	
+		    ent = nextPixel();
+	
+		    hshift = 0;
+		    for (fcode = hsize; fcode < 65536; fcode *= 2)
+		      ++hshift;
+		    hshift = 8 - hshift; // set hash code range bound
+	
+		    hsize_reg = hsize;
+		    cl_hash(hsize_reg); // clear hash table
+	
+		    output(ClearCode, outs);
+	
+		    outer_loop: while ((c = nextPixel()) != EOF) {
+		      fcode = (c << maxbits) + ent;
+		      i = (c << hshift) ^ ent; // xor hashing
+	
+		      if (htab[i] == fcode) {
+		        ent = codetab[i];
+		        continue;
+		      }
+	
+		      else if (htab[i] >= 0) { // non-empty slot
+	
+		        disp = hsize_reg - i; // secondary hash (after G. Knott)
+		        if (i === 0) disp = 1;
+	
+		        do {
+		          if ((i -= disp) < 0)
+		            i += hsize_reg;
+	
+		          if (htab[i] == fcode) {
+		            ent = codetab[i];
+		            continue outer_loop;
+		          }
+		        } while (htab[i] >= 0);
+		      }
+	
+		      output(ent, outs);
+		      ent = c;
+		      if (free_ent < maxmaxcode) {
+		        codetab[i] = free_ent++; // code -> hashtable
+		        htab[i] = fcode;
+		      }
+		      else cl_block(outs);
+		    }
+	
+		    // Put out the final code.
+		    output(ent, outs);
+		    output(EOFCode, outs);
+		  };
+	
+		  // ----------------------------------------------------------------------------
+		  var encode = exports.encode = function encode(os) {
+		    os.writeByte(initCodeSize); // write "initial code size" byte
+		    remaining = imgW * imgH; // reset navigation variables
+		    curPixel = 0;
+		    compress(initCodeSize + 1, os); // compress and write the pixel data
+		    os.writeByte(0); // write block terminator
+		  };
+	
+		  // Flush the packet to disk, and reset the accumulator
+		  var flush_char = function flush_char(outs) {
+		    if (a_count > 0) {
+		      outs.writeByte(a_count);
+		      outs.writeBytes(accum, 0, a_count);
+		      a_count = 0;
+		    }
+		  };
+	
+		  var MAXCODE = function MAXCODE(n_bits) {
+		    return (1 << n_bits) - 1;
+		  };
+	
+		  // ----------------------------------------------------------------------------
+		  // Return the next pixel from the image
+		  // ----------------------------------------------------------------------------
+	
+		  var nextPixel = function nextPixel() {
+		    if (remaining === 0) return EOF;
+		    --remaining;
+		    var pix = pixAry[curPixel++];
+		    return pix & 0xff;
+		  };
+	
+		  var output = function output(code, outs) {
+	
+		    cur_accum &= masks[cur_bits];
+	
+		    if (cur_bits > 0) cur_accum |= (code << cur_bits);
+		    else cur_accum = code;
+	
+		    cur_bits += n_bits;
+	
+		    while (cur_bits >= 8) {
+		      char_out((cur_accum & 0xff), outs);
+		      cur_accum >>= 8;
+		      cur_bits -= 8;
+		    }
+	
+		    // If the next entry is going to be too big for the code size,
+		    // then increase it, if possible.
+	
+		    if (free_ent > maxcode || clear_flg) {
+	
+		      if (clear_flg) {
+	
+		        maxcode = MAXCODE(n_bits = g_init_bits);
+		        clear_flg = false;
+	
+		      } else {
+	
+		        ++n_bits;
+		        if (n_bits == maxbits) maxcode = maxmaxcode;
+		        else maxcode = MAXCODE(n_bits);
+		      }
+		    }
+	
+		    if (code == EOFCode) {
+	
+		      // At EOF, write the rest of the buffer.
+		      while (cur_bits > 0) {
+		        char_out((cur_accum & 0xff), outs);
+		        cur_accum >>= 8;
+		        cur_bits -= 8;
+		      }
+	
+		      flush_char(outs);
+		    }
+		  };
+	
+		  LZWEncoder.apply(this, arguments);
+		  return exports;
+		};
+	
+		/*
+		 * NeuQuant Neural-Net Quantization Algorithm
+		 * ------------------------------------------
+		 *
+		 * Copyright (c) 1994 Anthony Dekker
+		 *
+		 * NEUQUANT Neural-Net quantization algorithm by Anthony Dekker, 1994. See
+		 * "Kohonen neural networks for optimal colour quantization" in "Network:
+		 * Computation in Neural Systems" Vol. 5 (1994) pp 351-367. for a discussion of
+		 * the algorithm.
+		 *
+		 * Any party obtaining a copy of these files from the author, directly or
+		 * indirectly, is granted, free of charge, a full and unrestricted irrevocable,
+		 * world-wide, paid up, royalty-free, nonexclusive right and license to deal in
+		 * this software and documentation files (the "Software"), including without
+		 * limitation the rights to use, copy, modify, merge, publish, distribute,
+		 * sublicense, and/or sell copies of the Software, and to permit persons who
+		 * receive copies from any such party to do so, with the only requirement being
+		 * that this copyright notice remain intact.
+		 */
+	
+		/*
+		 * This class handles Neural-Net quantization algorithm
+		 * @author Kevin Weiner (original Java version - kweiner@fmsware.com)
+		 * @author Thibault Imbert (AS3 version - bytearray.org)
+		 * @author Kevin Kwok (JavaScript version - https://github.com/antimatter15/jsgif)
+		 * @version 0.1 AS3 implementation
+		 */
+	
+		NeuQuant = function () {
+	
+		  var exports = {};
+		  var netsize = 256; /* number of colours used */
+	
+		  /* four primes near 500 - assume no image has a length so large */
+		  /* that it is divisible by all four primes */
+	
+		  var prime1 = 499;
+		  var prime2 = 491;
+		  var prime3 = 487;
+		  var prime4 = 503;
+		  var minpicturebytes = (3 * prime4); /* minimum size for input image */
+	
+			/*
+			 * Program Skeleton ---------------- [select samplefac in range 1..30] [read
+			 * image from input file] pic = (unsigned char*) malloc(3*width*height);
+			 * initnet(pic,3*width*height,samplefac); learn(); unbiasnet(); [write output
+			 * image header, using writecolourmap(f)] inxbuild(); write output image using
+			 * inxsearch(b,g,r)
+			 */
+	
+			/*
+			 * Network Definitions -------------------
+			 */
+	
+		  var maxnetpos = (netsize - 1);
+		  var netbiasshift = 4; /* bias for colour values */
+		  var ncycles = 100; /* no. of learning cycles */
+	
+		  /* defs for freq and bias */
+		  var intbiasshift = 16; /* bias for fractions */
+		  var intbias = (1 << intbiasshift);
+		  var gammashift = 10; /* gamma = 1024 */
+		  var gamma = (1 << gammashift);
+		  var betashift = 10;
+		  var beta = (intbias >> betashift); /* beta = 1/1024 */
+		  var betagamma = (intbias << (gammashift - betashift));
+	
+		  /* defs for decreasing radius factor */
+		  var initrad = (netsize >> 3); /* for 256 cols, radius starts */
+		  var radiusbiasshift = 6; /* at 32.0 biased by 6 bits */
+		  var radiusbias = (1 << radiusbiasshift);
+		  var initradius = (initrad * radiusbias); /* and decreases by a */
+		  var radiusdec = 30; /* factor of 1/30 each cycle */
+	
+		  /* defs for decreasing alpha factor */
+		  var alphabiasshift = 10; /* alpha starts at 1.0 */
+		  var initalpha = (1 << alphabiasshift);
+		  var alphadec; /* biased by 10 bits */
+	
+		  /* radbias and alpharadbias used for radpower calculation */
+		  var radbiasshift = 8;
+		  var radbias = (1 << radbiasshift);
+		  var alpharadbshift = (alphabiasshift + radbiasshift);
+		  var alpharadbias = (1 << alpharadbshift);
+	
+			/*
+			 * Types and Global Variables --------------------------
+			 */
+	
+		  var thepicture; /* the input image itself */
+		  var lengthcount; /* lengthcount = H*W*3 */
+		  var samplefac; /* sampling factor 1..30 */
+	
+		  // typedef int pixel[4]; /* BGRc */
+		  var network; /* the network itself - [netsize][4] */
+		  var netindex = [];
+	
+		  /* for network lookup - really 256 */
+		  var bias = [];
+	
+		  /* bias and freq arrays for learning */
+		  var freq = [];
+		  var radpower = [];
+	
+		  var NeuQuant = exports.NeuQuant = function NeuQuant(thepic, len, sample) {
+	
+		    var i;
+		    var p;
+	
+		    thepicture = thepic;
+		    lengthcount = len;
+		    samplefac = sample;
+	
+		    network = new Array(netsize);
+	
+		    for (i = 0; i < netsize; i++) {
+	
+		      network[i] = new Array(4);
+		      p = network[i];
+		      p[0] = p[1] = p[2] = (i << (netbiasshift + 8)) / netsize;
+		      freq[i] = intbias / netsize; /* 1/netsize */
+		      bias[i] = 0;
+		    }
+		  };
+	
+		  var colorMap = function colorMap() {
+	
+		    var map = [];
+		    var index = new Array(netsize);
+	
+		    for (var i = 0; i < netsize; i++)
+		      index[network[i][3]] = i;
+	
+		    var k = 0;
+		    for (var l = 0; l < netsize; l++) {
+		      var j = index[l];
+		      map[k++] = (network[j][0]);
+		      map[k++] = (network[j][1]);
+		      map[k++] = (network[j][2]);
+		    }
+	
+		    return map;
+		  };
+	
+			/*
+			 * Insertion sort of network and building of netindex[0..255] (to do after
+			 * unbias)
+			 * -------------------------------------------------------------------------------
+			 */
+	
+		  var inxbuild = function inxbuild() {
+	
+		    var i;
+		    var j;
+		    var smallpos;
+		    var smallval;
+		    var p;
+		    var q;
+		    var previouscol;
+		    var startpos;
+	
+		    previouscol = 0;
+		    startpos = 0;
+		    for (i = 0; i < netsize; i++) {
+	
+		      p = network[i];
+		      smallpos = i;
+		      smallval = p[1]; /* index on g */
+	
+		      /* find smallest in i..netsize-1 */
+		      for (j = i + 1; j < netsize; j++) {
+	
+		        q = network[j];
+		        if (q[1] < smallval) { /* index on g */
+		          smallpos = j;
+		          smallval = q[1]; /* index on g */
+		        }
+		      }
+		      q = network[smallpos];
+	
+		      /* swap p (i) and q (smallpos) entries */
+		      if (i != smallpos) {
+		        j = q[0];
+		        q[0] = p[0];
+		        p[0] = j;
+		        j = q[1];
+		        q[1] = p[1];
+		        p[1] = j;
+		        j = q[2];
+		        q[2] = p[2];
+		        p[2] = j;
+		        j = q[3];
+		        q[3] = p[3];
+		        p[3] = j;
+		      }
+	
+		      /* smallval entry is now in position i */
+	
+		      if (smallval != previouscol) {
+	
+		        netindex[previouscol] = (startpos + i) >> 1;
+	
+		        for (j = previouscol + 1; j < smallval; j++) netindex[j] = i;
+	
+		        previouscol = smallval;
+		        startpos = i;
+		      }
+		    }
+	
+		    netindex[previouscol] = (startpos + maxnetpos) >> 1;
+		    for (j = previouscol + 1; j < 256; j++) netindex[j] = maxnetpos; /* really 256 */
+		  };
+	
+			/*
+			 * Main Learning Loop ------------------
+			 */
+	
+		  var learn = function learn() {
+	
+		    var i;
+		    var j;
+		    var b;
+		    var g;
+		    var r;
+		    var radius;
+		    var rad;
+		    var alpha;
+		    var step;
+		    var delta;
+		    var samplepixels;
+		    var p;
+		    var pix;
+		    var lim;
+	
+		    if (lengthcount < minpicturebytes) samplefac = 1;
+	
+		    alphadec = 30 + ((samplefac - 1) / 3);
+		    p = thepicture;
+		    pix = 0;
+		    lim = lengthcount;
+		    samplepixels = lengthcount / (3 * samplefac);
+		    delta = (samplepixels / ncycles) | 0;
+		    alpha = initalpha;
+		    radius = initradius;
+	
+		    rad = radius >> radiusbiasshift;
+		    if (rad <= 1) rad = 0;
+	
+		    for (i = 0; i < rad; i++) radpower[i] = alpha * (((rad * rad - i * i) * radbias) / (rad * rad));
+	
+		    if (lengthcount < minpicturebytes) step = 3;
+	
+		    else if ((lengthcount % prime1) !== 0) step = 3 * prime1;
+	
+		    else {
+	
+		      if ((lengthcount % prime2) !== 0) step = 3 * prime2;
+		      else {
+		        if ((lengthcount % prime3) !== 0) step = 3 * prime3;
+		        else step = 3 * prime4;
+		      }
+		    }
+	
+		    i = 0;
+		    while (i < samplepixels) {
+	
+		      b = (p[pix + 0] & 0xff) << netbiasshift;
+		      g = (p[pix + 1] & 0xff) << netbiasshift;
+		      r = (p[pix + 2] & 0xff) << netbiasshift;
+		      j = contest(b, g, r);
+	
+		      altersingle(alpha, j, b, g, r);
+		      if (rad !== 0) alterneigh(rad, j, b, g, r); /* alter neighbours */
+	
+		      pix += step;
+		      if (pix >= lim) pix -= lengthcount;
+	
+		      i++;
+	
+		      if (delta === 0) delta = 1;
+	
+		      if (i % delta === 0) {
+		        alpha -= alpha / alphadec;
+		        radius -= radius / radiusdec;
+		        rad = radius >> radiusbiasshift;
+	
+		        if (rad <= 1) rad = 0;
+	
+		        for (j = 0; j < rad; j++) radpower[j] = alpha * (((rad * rad - j * j) * radbias) / (rad * rad));
+		      }
+		    }
+		  };
+	
+			/*
+			 ** Search for BGR values 0..255 (after net is unbiased) and return colour
+			 * index
+			 * ----------------------------------------------------------------------------
+			 */
+	
+		  var map = exports.map = function map(b, g, r) {
+	
+		    var i;
+		    var j;
+		    var dist;
+		    var a;
+		    var bestd;
+		    var p;
+		    var best;
+	
+		    bestd = 1000; /* biggest possible dist is 256*3 */
+		    best = -1;
+		    i = netindex[g]; /* index on g */
+		    j = i - 1; /* start at netindex[g] and work outwards */
+	
+		    while ((i < netsize) || (j >= 0)) {
+	
+		      if (i < netsize) {
+		        p = network[i];
+		        dist = p[1] - g; /* inx key */
+	
+		        if (dist >= bestd) i = netsize; /* stop iter */
+	
+		        else {
+	
+		          i++;
+		          if (dist < 0) dist = -dist;
+		          a = p[0] - b;
+		          if (a < 0) a = -a;
+		          dist += a;
+	
+		          if (dist < bestd) {
+		            a = p[2] - r;
+		            if (a < 0) a = -a;
+		            dist += a;
+	
+		            if (dist < bestd) {
+		              bestd = dist;
+		              best = p[3];
+		            }
+		          }
+		        }
+		      }
+	
+		      if (j >= 0) {
+	
+		        p = network[j];
+		        dist = g - p[1]; /* inx key - reverse dif */
+	
+		        if (dist >= bestd) j = -1; /* stop iter */
+	
+		        else {
+	
+		          j--;
+		          if (dist < 0) dist = -dist;
+		          a = p[0] - b;
+		          if (a < 0) a = -a;
+		          dist += a;
+	
+		          if (dist < bestd) {
+		            a = p[2] - r;
+		            if (a < 0) a = -a;
+		            dist += a;
+		            if (dist < bestd) {
+		              bestd = dist;
+		              best = p[3];
+		            }
+		          }
+		        }
+		      }
+		    }
+	
+		    return (best);
+		  };
+	
+		  var process = exports.process = function process() {
+		    learn();
+		    unbiasnet();
+		    inxbuild();
+		    return colorMap();
+		  };
+	
+			/*
+			 * Unbias network to give byte values 0..255 and record position i to prepare
+			 * for sort
+			 * -----------------------------------------------------------------------------------
+			 */
+	
+		  var unbiasnet = function unbiasnet() {
+	
+		    var i;
+		    var j;
+	
+		    for (i = 0; i < netsize; i++) {
+		      network[i][0] >>= netbiasshift;
+		      network[i][1] >>= netbiasshift;
+		      network[i][2] >>= netbiasshift;
+		      network[i][3] = i; /* record colour no */
+		    }
+		  };
+	
+			/*
+			 * Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in
+			 * radpower[|i-j|]
+			 * ---------------------------------------------------------------------------------
+			 */
+	
+		  var alterneigh = function alterneigh(rad, i, b, g, r) {
+	
+		    var j;
+		    var k;
+		    var lo;
+		    var hi;
+		    var a;
+		    var m;
+		    var p;
+	
+		    lo = i - rad;
+		    if (lo < -1) lo = -1;
+	
+		    hi = i + rad;
+		    if (hi > netsize) hi = netsize;
+	
+		    j = i + 1;
+		    k = i - 1;
+		    m = 1;
+	
+		    while ((j < hi) || (k > lo)) {
+		      a = radpower[m++];
+	
+		      if (j < hi) {
+		        p = network[j++];
+	
+		        try {
+		          p[0] -= (a * (p[0] - b)) / alpharadbias;
+		          p[1] -= (a * (p[1] - g)) / alpharadbias;
+		          p[2] -= (a * (p[2] - r)) / alpharadbias;
+		        } catch (e) { } // prevents 1.3 miscompilation
+		      }
+	
+		      if (k > lo) {
+		        p = network[k--];
+	
+		        try {
+		          p[0] -= (a * (p[0] - b)) / alpharadbias;
+		          p[1] -= (a * (p[1] - g)) / alpharadbias;
+		          p[2] -= (a * (p[2] - r)) / alpharadbias;
+		        } catch (e) { }
+		      }
+		    }
+		  };
+	
+			/*
+			 * Move neuron i towards biased (b,g,r) by factor alpha
+			 * ----------------------------------------------------
+			 */
+	
+		  var altersingle = function altersingle(alpha, i, b, g, r) {
+	
+		    /* alter hit neuron */
+		    var n = network[i];
+		    n[0] -= (alpha * (n[0] - b)) / initalpha;
+		    n[1] -= (alpha * (n[1] - g)) / initalpha;
+		    n[2] -= (alpha * (n[2] - r)) / initalpha;
+		  };
+	
+			/*
+			 * Search for biased BGR values ----------------------------
+			 */
+	
+		  var contest = function contest(b, g, r) {
+	
+		    /* finds closest neuron (min dist) and updates freq */
+		    /* finds best neuron (min dist-bias) and returns position */
+		    /* for frequently chosen neurons, freq[i] is high and bias[i] is negative */
+		    /* bias[i] = gamma*((1/netsize)-freq[i]) */
+	
+		    var i;
+		    var dist;
+		    var a;
+		    var biasdist;
+		    var betafreq;
+		    var bestpos;
+		    var bestbiaspos;
+		    var bestd;
+		    var bestbiasd;
+		    var n;
+	
+		    bestd = ~(1 << 31);
+		    bestbiasd = bestd;
+		    bestpos = -1;
+		    bestbiaspos = bestpos;
+	
+		    for (i = 0; i < netsize; i++) {
+		      n = network[i];
+		      dist = n[0] - b;
+		      if (dist < 0) dist = -dist;
+		      a = n[1] - g;
+		      if (a < 0) a = -a;
+		      dist += a;
+		      a = n[2] - r;
+		      if (a < 0) a = -a;
+		      dist += a;
+	
+		      if (dist < bestd) {
+		        bestd = dist;
+		        bestpos = i;
+		      }
+	
+		      biasdist = dist - ((bias[i]) >> (intbiasshift - netbiasshift));
+	
+		      if (biasdist < bestbiasd) {
+		        bestbiasd = biasdist;
+		        bestbiaspos = i;
+		      }
+	
+		      betafreq = (freq[i] >> betashift);
+		      freq[i] -= betafreq;
+		      bias[i] += (betafreq << gammashift);
+		    }
+	
+		    freq[bestpos] += beta;
+		    bias[bestpos] -= betagamma;
+		    return (bestbiaspos);
+		  };
+	
+		  NeuQuant.apply(this, arguments);
+		  return exports;
+		};
+	
+	
+	/***/ }
+	/******/ ])
+	});
+	;
 
 /***/ }
 /******/ ]);

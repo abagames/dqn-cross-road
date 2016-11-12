@@ -6,6 +6,10 @@ import * as gcc from 'gcc';
 import * as s1 from './s1/index';
 declare const require: any;
 const RL = require('rl');
+const Neuroevolution = require('Neuroevolution');
+const isEnableGcc = false;
+let ne;
+let genCount = 0;
 
 s1.init(init, initGame, update, postUpdate);
 
@@ -17,13 +21,18 @@ function init() {
     isShowingScore: false
   });
   s1.setSeeds(9009582);
-  /*s1.enableDebug(() => {
-  });*/
-  //gcc.setOptions({ scale: 2 });
+  ne = new Neuroevolution({
+    population: dqnCount / 2,
+    network: [Dqn.sightLane * 2, [10, 10], 2]
+  });
+  if (isEnableGcc) {
+    gcc.setOptions({ scale: 2 });
+  }
 }
 
 const laneCount = 8;
-const dqnCount = 8;
+const dqnCount = 10;
+let aliveDqn;
 
 function initGame() {
   _.times(16, i => {
@@ -41,26 +50,27 @@ function initGame() {
       line.pos.y = 14 + 12 + y * 12;
     });
   });
-  _.times(dqnCount, () => new Dqn());
-  sortDqns();
 }
 
 function update() {
-  if (s1.ticks % (60 * 5) == 60 * 5 - 1) {
-    const dqns = s1.Actor.get('Dqn');
-    if (dqns.length > 1) {
-      sortDqns(true);
-    } else {
-      const aliveDqn = dqns[0] as Dqn;
-      aliveDqn.totalReward = 0;
-      const agentJSON = aliveDqn.agent.toJSON();
-      _.times(dqnCount - 2, () => {
-        const d = new Dqn();
-        d.agent.fromJSON(agentJSON);
-      });
-      new Dqn();
-      sortDqns();
+  if (s1.Actor.get('Dqn').length <= 0) {
+    const gen = ne.nextGeneration();
+    _.forEach(gen, g => new Dqn(g));
+    let agentJSON;
+    if (aliveDqn != null) {
+      agentJSON = aliveDqn.agent.toJSON();
     }
+    _.times(dqnCount / 2, () => {
+      const d = new Dqn();
+      if (agentJSON != null) {
+        d.agent.fromJSON(agentJSON);
+      }
+    });
+    sortDqns();
+    genCount++;
+  }
+  if (s1.ticks % (60 * 2) == 60 * 2 - 1) {
+    sortDqns(true);
   }
   if (s1.ticks % 20 === 0) {
     new Car();
@@ -69,27 +79,36 @@ function update() {
 
 function postUpdate() {
   drawDqnRewards();
-  //gcc.capture(s1.screen.canvas);
+  const gs = `GEN${genCount}`;
+  s1.text.draw(gs, s1.screen.size.x - gs.length * 4 - 4, 4);
+  if (isEnableGcc) {
+    gcc.capture(s1.screen.canvas);
+  }
 }
 
 class Dqn extends s1.Actor {
   static hueIndex = 0;
-  static sightLane = 5;
+  static sightLane = 3;
   lane = laneCount + 1;
   agent;
   totalReward = 0;
   isHit = false;
   isFirst = true;
   index = 0;
+  outOfLaneTicks = 0;
+  isDqn = true;
 
-  constructor() {
+  constructor(public gen = null) {
     super();
-    const env: any = {};
-    env.getNumStates = () => Dqn.sightLane * 2;
-    env.getMaxNumActions = () => 3;
-    this.agent = new RL.DQNAgent(env, {});
+    this.isDqn = gen == null;
+    if (this.isDqn) {
+      const env: any = {};
+      env.getNumStates = () => Dqn.sightLane * 2;
+      env.getMaxNumActions = () => 3;
+      this.agent = new RL.DQNAgent(env, {});
+    }
     this.pixels = pag.generate([' x', 'xxx', 'x x'],
-      { isMirrorY: false, hue: Dqn.hueIndex });
+      { isMirrorY: false, hue: Dqn.hueIndex * 0.15 + (this.isDqn ? 0 : 0.5) });
     this.pos.x = s1.screen.size.x / 2;
     Dqn.hueIndex += 0.11;
     if (Dqn.hueIndex >= 1) {
@@ -109,28 +128,38 @@ class Dqn extends s1.Actor {
     }
     let reward = 0;
     if (this.isHit) {
-      reward--;
+      reward -= 5;
       this.emitParticles('e1');
       sss.play('e1');
       this.lane = laneCount + 1;
+      this.outOfLaneTicks = 0;
       this.isHit = false;
     } else if (this.lane < 1) {
       reward++;
       sss.play('c1');
       this.lane = laneCount + 1;
+      this.outOfLaneTicks = 0;
     }
     if (!this.isFirst) {
-      this.agent.learn(reward);
+      if (this.isDqn) {
+        this.agent.learn(reward);
+      }
       this.totalReward += reward;
     } else {
       this.isFirst = false;
     }
     const state = _.times(Dqn.sightLane, i => {
       const l = this.lane + i - (Dqn.sightLane - 1) / 2;
-      const type = l < 1 ? 1 : (l > laneCount) ? -1 : 0;
-      return [getNearestCarDist(l), type];
+      const type = l < 1 ? 1 : (l > laneCount) ? 0 : 0.5;
+      return [getNearestCarDist(l) / 64, type];
     });
-    const action = this.agent.act(_.flatten(state));
+    let action = 0;
+    if (this.isDqn) {
+      action = this.agent.act(_.flatten(state));
+    } else {
+      const res = this.gen.compute(_.flatten(state));
+      action = res[0] > 0.5 ? 0 : res[1] > 0.5 ? 2 : 1;
+    }
     const prevLane = this.lane;
     this.lane += action - 1;
     if (this.lane > laneCount) {
@@ -138,6 +167,10 @@ class Dqn extends s1.Actor {
         this.lane = laneCount;
       } else {
         this.lane = laneCount + 1;
+        this.outOfLaneTicks++;
+        if (this.outOfLaneTicks > 6) {
+          this.lane = laneCount;
+        }
       }
     }
   }
@@ -148,13 +181,19 @@ function sortDqns(isElminating = false) {
   if (isElminating) {
     const ed = dqns[0] as Dqn;
     ed.emitParticles('e2', 2);
-    sss.play('u1');
+    sss.play('e2');
+    if (!ed.isDqn) {
+      ne.networkScore(ed.gen, ed.totalReward);
+    }
     ed.remove();
     dqns.shift();
   }
   _.forEach(dqns, (d: Dqn, i) => {
     d.index = i;
     d.priority = 10 - i;
+    if (d.isDqn) {
+      aliveDqn = d;
+    }
   });
 }
 
